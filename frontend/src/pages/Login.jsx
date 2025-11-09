@@ -7,7 +7,7 @@ const Login = () => {
     return (
         <>
             <div className='flex h-screen'>
-                <div className="w-[60%] bg-blue-200 flex flex-col align-middle justify-center pl-20 text-white">
+                <div className="w-[60%] bg-blue-300 flex flex-col align-middle justify-center pl-20 text-white">
                     <div className="text-center">
                         <h1 className="text-6xl font-extrabold mb-4">Welcome Back</h1>
                         <p className="text-2xl">You can sign in to access your existing account.</p>

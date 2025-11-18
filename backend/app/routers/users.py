@@ -1,16 +1,18 @@
 # app/routers/users.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+import hashlib
+import hmac
+import fastapi
 
 from app.database import SessionLocal
 from app import models
 from app.schemas import UserSignupIn, UserOut, LoginIn, LoginOut
-from typing import Any
 
 router = APIRouter(prefix="/api", tags=["users"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Simple secret "pepper" for hashing 
+SECRET_PEPPER = "dev-secret-change-me"  # in real apps, load from env
 
 
 def get_db():
@@ -22,11 +24,18 @@ def get_db():
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """
+    Simple SHA-256 hash with a pepper for this project.
+    DO NOT use this as-is in real production systems.
+    """
+    pw_bytes = (password + SECRET_PEPPER).encode("utf-8")
+    return hashlib.sha256(pw_bytes).hexdigest()
 
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+def verify_password(plain: str, hashed) -> bool:
+    # normalize to string in case SQLAlchemy does something weird
+    hashed_str = str(hashed)
+    return hmac.compare_digest(hash_password(plain), hashed_str)
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -61,10 +70,11 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
         models.UserAccount.email == payload.email
     ).first()
 
-    if not user or not verify_password(payload.password, str(user.passwordHash)):
+    if not user or not verify_password(payload.password, user.passwordHash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
+    # Pydantic orm_mode on LoginOut will shape this automatically
     return user

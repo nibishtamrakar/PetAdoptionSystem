@@ -31,4 +31,19 @@ python -m venv venv
 venv\Scripts\activate   # Windows
 # or
 source venv/bin/activate  # Mac/Linux
+```
+
+### 2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. run backend
+```bash
+uvicorn app.main:app --reload
+```
+
+
+
+
 

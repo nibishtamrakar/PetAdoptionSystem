@@ -4,7 +4,7 @@ import HomePage from './pages/Homepage'
 import About from './pages/About'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
-import Test from './pages/Test'
+import BrowsePets from './pages/BrowsePets'
 
 
 function App() {
@@ -16,7 +16,7 @@ function App() {
         <Route path="/About" element={<About />} />
         <Route path="/Login" element={<Login />} />
         <Route path="/Signup" element={<Signup />} />
-        <Route path="/Test" element={<Test />} />
+        <Route path="/BrowsePets" element={<BrowsePets />} />
       </Routes>
     </Router>
     </>

@@ -36,7 +36,7 @@ const Login = () => {
             // localStorage.setItem("user", JSON.stringify(data));
 
             // redirect to home/dashboard after login
-            navigate("/test");
+            navigate("/browsepets");
 
         } catch (err) {
             setError("Network error");

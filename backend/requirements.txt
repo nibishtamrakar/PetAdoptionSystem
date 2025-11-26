@@ -5,3 +5,4 @@ pymysql
 python-multipart
 passlib[bcrypt]
 pydantic
+python-dotenv

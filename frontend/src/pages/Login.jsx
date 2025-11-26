@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -21,7 +21,9 @@ const Login = () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -39,7 +41,7 @@ const Login = () => {
       setError("Network error");
     }
   };
-
+  
   return (
     <div className="flex h-screen">
       <div className="w-[60%] bg-blue-300 flex flex-col align-middle justify-center pl-20 text-white">

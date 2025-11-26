@@ -5,7 +5,7 @@ import About from './pages/About'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import BrowsePets from './pages/BrowsePets'
-
+import PetDetail from './pages/PetDetail'
 
 function App() {
   return (
@@ -17,6 +17,7 @@ function App() {
         <Route path="/Login" element={<Login />} />
         <Route path="/Signup" element={<Signup />} />
         <Route path="/BrowsePets" element={<BrowsePets />} />
+        <Route path="/pet/:id" element={<PetDetail />} />
       </Routes>
     </Router>
     </>

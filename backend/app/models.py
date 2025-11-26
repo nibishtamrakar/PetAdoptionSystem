@@ -1,6 +1,5 @@
-# app/models.py
 from sqlalchemy import (
-    Column, Integer, String, Enum, Date, DateTime, DECIMAL, Text,
+    Column, Integer, String, Enum, Date, DateTime, Text,
     ForeignKey
 )
 from sqlalchemy.orm import relationship
@@ -15,14 +14,20 @@ class UserAccount(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(50), nullable=False, unique=True)
     phone = Column(String(30))
-    role = Column(Enum("ADOPTER", "STAFF", "VET", "ADMIN", name="user_role"), nullable=False)
+    role = Column(
+        Enum("ADOPTER", "STAFF", "ADMIN", name="user_role"),
+        nullable=False,
+        default="ADOPTER" ,     # SQLAlchemy default
+        server_default="ADOPTER" # DB default
+    )
     passwordHash = Column(String(255), nullable=False)
 
     # relationships
     adoptions = relationship("Adoption", back_populates="adopter")
     appointments = relationship("Appointment", back_populates="adopter")
     care_logs = relationship("CareLog", back_populates="staff")
-    payments = relationship("Payment", back_populates="adopter")
+
+    staff_profile = relationship("Staff", back_populates="user", uselist=False)
 
 
 # 2. ---------- SHELTER ----------
@@ -37,8 +42,25 @@ class Shelter(Base):
     pets = relationship("Pet", back_populates="shelter")
     appointments = relationship("Appointment", back_populates="shelter")
 
+    # staff assigned to this shelter
+    staff_members = relationship("Staff", back_populates="shelter")
 
-# 3. ---------- PET ----------
+
+# 3. ---------- STAFF (NEW LINK TABLE USERACCOUNT <-> SHELTER) ----------
+class Staff(Base):
+    __tablename__ = "Staff"
+
+    staffID = Column(Integer, primary_key=True, autoincrement=True)
+    userID = Column(Integer, ForeignKey("UserAccount.userID"), nullable=False, unique=True)
+    shelterID = Column(Integer, ForeignKey("Shelter.shelterID"), nullable=False)
+    position = Column(String(100), nullable=True)  # optional field if you want
+
+    # relationships
+    user = relationship("UserAccount", back_populates="staff_profile")
+    shelter = relationship("Shelter", back_populates="staff_members")
+
+
+# 4. ---------- PET ----------
 class Pet(Base):
     __tablename__ = "Pet"
 
@@ -49,7 +71,11 @@ class Pet(Base):
     breed = Column(String(50))
     sex = Column(Enum("M", "F", "UNKNOWN", name="pet_sex"), nullable=False, default="UNKNOWN")
     dob = Column(Date)
-    status = Column(Enum("AVAILABLE", "HOLD", "ADOPTED", name="pet_status"), nullable=False, default="AVAILABLE")
+    status = Column(
+        Enum("AVAILABLE", "HOLD", "ADOPTED", name="pet_status"),
+        nullable=False,
+        default="AVAILABLE"
+    )
     intakeDate = Column(Date, nullable=False)
 
     shelter = relationship("Shelter", back_populates="pets")
@@ -59,7 +85,7 @@ class Pet(Base):
     vaccines = relationship("PetVaccine", back_populates="pet")
 
 
-# 4. ---------- VACCINE ----------
+# 5. ---------- VACCINE ----------
 class Vaccine(Base):
     __tablename__ = "Vaccine"
 
@@ -69,7 +95,7 @@ class Vaccine(Base):
     pet_vaccines = relationship("PetVaccine", back_populates="vaccine")
 
 
-# 5. ---------- PETVACCINE (JUNCTION) ----------
+# 6. ---------- PETVACCINE (JUNCTION) ----------
 class PetVaccine(Base):
     __tablename__ = "PetVaccine"
 
@@ -82,7 +108,7 @@ class PetVaccine(Base):
     vaccine = relationship("Vaccine", back_populates="pet_vaccines")
 
 
-# 6. ---------- ADOPTION ----------
+# 7. ---------- ADOPTION ----------
 class Adoption(Base):
     __tablename__ = "Adoption"
 
@@ -99,10 +125,9 @@ class Adoption(Base):
 
     pet = relationship("Pet", back_populates="adoptions")
     adopter = relationship("UserAccount", back_populates="adoptions")
-    payments = relationship("Payment", back_populates="adoption")
 
 
-# 7. ---------- APPOINTMENT ----------
+# 8. ---------- APPOINTMENT ----------
 class Appointment(Base):
     __tablename__ = "Appointment"
 
@@ -118,10 +143,9 @@ class Appointment(Base):
     pet = relationship("Pet", back_populates="appointments")
     adopter = relationship("UserAccount", back_populates="appointments")
     shelter = relationship("Shelter", back_populates="appointments")
-    payments = relationship("Payment", back_populates="appointment")
 
 
-# 8. ---------- CARELOG ----------
+# 9. ---------- CARELOG ----------
 class CareLog(Base):
     __tablename__ = "CareLog"
 
@@ -134,24 +158,6 @@ class CareLog(Base):
 
     pet = relationship("Pet", back_populates="care_logs")
     staff = relationship("UserAccount", back_populates="care_logs")
-
-
-# 9. ---------- PAYMENT ----------
-class Payment(Base):
-    __tablename__ = "Payment"
-
-    paymentID = Column(Integer, primary_key=True, autoincrement=True)
-    adopterID = Column(Integer, ForeignKey("UserAccount.userID"), nullable=False)
-    adoptionID = Column(Integer, ForeignKey("Adoption.adoptionID"))
-    appointmentID = Column(Integer, ForeignKey("Appointment.appointmentID"))
-    amount = Column(DECIMAL(10, 2), nullable=False)
-    paymentDate = Column(DateTime, nullable=False)
-    paymentMethod = Column(Enum("CASH", "CARD", name="pay_method"), nullable=False)
-    status = Column(Enum("PENDING", "COMPLETED", "REFUNDED", name="pay_status"), default="PENDING")
-
-    adopter = relationship("UserAccount", back_populates="payments")
-    adoption = relationship("Adoption", back_populates="payments")
-    appointment = relationship("Appointment", back_populates="payments")
 
 
 # 10. ---------- BREED ----------
@@ -167,4 +173,3 @@ class Breed(Base):
     )
     lifespan = Column(String(30))
     temperament = Column(String(255))
-

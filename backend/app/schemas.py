@@ -1,6 +1,5 @@
-# app/schemas.py
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime, date
 
 
@@ -100,30 +99,6 @@ class CareLogOut(BaseModel):
         orm_mode = True
 
 
-# ---------- PAYMENT ----------
-
-class PaymentCreate(BaseModel):
-    adopterID: int
-    adoptionID: Optional[int] = None
-    appointmentID: Optional[int] = None
-    amount: float
-    paymentMethod: str   # 'CASH' | 'CARD'
-
-
-class PaymentOut(BaseModel):
-    paymentID: int
-    adopterID: int
-    adoptionID: Optional[int]
-    appointmentID: Optional[int]
-    amount: float
-    paymentDate: datetime
-    paymentMethod: str
-    status: str
-
-    class Config:
-        orm_mode = True
-
-
 # ---------- BREED ----------
 
 class BreedOut(BaseModel):
@@ -158,7 +133,26 @@ class PetVaccineOut(BaseModel):
         orm_mode = True
 
 
+# ---------- STAFF (NEW) ----------
+
+class StaffCreate(BaseModel):
+    userID: int
+    shelterID: int
+    position: Optional[str] = None
+
+
+class StaffOut(BaseModel):
+    staffID: int
+    userID: int
+    shelterID: int
+    position: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
 # ---------- USER ACCOUNT ----------
+
 class UserSignupIn(BaseModel):
     name: str
     email: EmailStr
@@ -171,7 +165,7 @@ class UserOut(BaseModel):
     name: str
     email: EmailStr
     phone: Optional[str]
-    role: str
+    role: str  # ADOPTER, STAFF, ADMIN
 
     class Config:
         orm_mode = True

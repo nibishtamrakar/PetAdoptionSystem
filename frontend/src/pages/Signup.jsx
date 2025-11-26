@@ -24,7 +24,7 @@ const Signup = () => {
         setSuccess(null);
 
         // validate required fields (include password)
-        if (!form.name || !form.email || !form.phone || !form.role || !form.password) {
+        if (!form.name || !form.email || !form.phone || !form.password) {
             setError("All fields are required");
             return;
         }
@@ -105,7 +105,7 @@ const Signup = () => {
                         className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
 
-                    <select
+                    {/* <select
                         className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                         value={form.role}
                         onChange={handleRoleChange}
@@ -113,9 +113,8 @@ const Signup = () => {
                         <option value="" disabled>Select Role</option>
                         <option value="adopter">Adopter</option>
                         <option value="staff">Staff</option>
-                        <option value="vet">Vet</option>
                         <option value="admin">Admin</option>
-                    </select>
+                    </select> */}
 
                     <input
                         type="password"

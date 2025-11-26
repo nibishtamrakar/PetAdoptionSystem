@@ -5,6 +5,7 @@ from .database import Base, engine, SessionLocal
 from . import models
 
 from app.routers import users
+from app.routers import pets
 
 Base.metadata.create_all(bind=engine)
 
@@ -18,12 +19,11 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,      # set True if you’ll use cookies/auth
+    allow_credentials=True,      # set True for cookies/auth
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(users.router)
 
 @app.get("/api/ping")
 def ping():
@@ -41,3 +41,6 @@ def root():
     return {"ok": True}
 
 
+
+app.include_router(users.router)
+app.include_router(pets.router)

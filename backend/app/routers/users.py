@@ -3,16 +3,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import hashlib
 import hmac
-import fastapi
+import os
+from dotenv import load_dotenv
 
 from app.database import SessionLocal
 from app import models
 from app.schemas import UserSignupIn, UserOut, LoginIn, LoginOut
 
+load_dotenv()  # load .env file
+
 router = APIRouter(prefix="/api", tags=["users"])
 
-# Simple secret "pepper" for hashing 
-SECRET_PEPPER = "dev-secret-change-me"  # in real apps, load from env
+# Load pepper from environment
+SECRET_PEPPER = os.getenv("SECRET_PEPPER", "fallback-dev-pepper")
 
 
 def get_db():
@@ -24,18 +27,12 @@ def get_db():
 
 
 def hash_password(password: str) -> str:
-    """
-    Simple SHA-256 hash with a pepper for this project.
-    DO NOT use this as-is in real production systems.
-    """
     pw_bytes = (password + SECRET_PEPPER).encode("utf-8")
     return hashlib.sha256(pw_bytes).hexdigest()
 
 
-def verify_password(plain: str, hashed) -> bool:
-    # normalize to string in case SQLAlchemy does something weird
-    hashed_str = str(hashed)
-    return hmac.compare_digest(hash_password(plain), hashed_str)
+def verify_password(plain: str, hashed: str) -> bool:
+    return hmac.compare_digest(hash_password(plain), str(hashed))
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -54,7 +51,7 @@ def signup(payload: UserSignupIn, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         phone=payload.phone,
-        role="ADOPTER",  # default
+        role="ADOPTER",
         passwordHash=hash_password(payload.password),
     )
 
@@ -70,11 +67,10 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
         models.UserAccount.email == payload.email
     ).first()
 
-    if not user or not verify_password(payload.password, user.passwordHash):
+    if not user or not verify_password(payload.password, user.passwordHash): # type: ignore
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    # Pydantic orm_mode on LoginOut will shape this automatically
     return user

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar"
 import PetCard from "../components/PetCard";
 
 const BrowsePets = () => {

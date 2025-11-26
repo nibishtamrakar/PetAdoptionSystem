@@ -4,6 +4,5 @@ sqlalchemy
 pymysql
 python-multipart
 passlib[bcrypt]
-pydantic
 pydantic[email]
 python-dotenv

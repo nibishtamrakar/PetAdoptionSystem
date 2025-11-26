@@ -10,6 +10,7 @@ const BrowsePets = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [locationQuery, setLocationQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
 
@@ -45,9 +46,9 @@ const BrowsePets = () => {
     fetchPets();
   }, []);
 
-  const totalPages = Math.ceil(pets.length / PAGE_SIZE) || 1;
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const visiblePets = pets.slice(startIndex, startIndex + PAGE_SIZE);
+  // const totalPages = Math.ceil(pets.length / PAGE_SIZE) || 1;
+  // const startIndex = (currentPage - 1) * PAGE_SIZE;
+  // const visiblePets = pets.slice(startIndex, startIndex + PAGE_SIZE);
 
   const goPrev = () => {
     setCurrentPage((p) => Math.max(1, p - 1));
@@ -56,6 +57,31 @@ const BrowsePets = () => {
   const goNext = () => {
     setCurrentPage((p) => Math.min(totalPages, p + 1));
   };
+
+  // filter by location (shelter name / address / city part)
+  const filteredPets = pets.filter((pet) => {
+    if (!locationQuery.trim()) return true;
+
+    const q = locationQuery.toLowerCase();
+    const name = (pet.shelterName || "").toLowerCase();
+    const address = (pet.shelterAddress || "").toLowerCase();
+
+    return name.includes(q) || address.includes(q);
+  });
+
+  // pagination uses filteredPets instead of pets
+  const totalPages = Math.ceil(filteredPets.length / PAGE_SIZE) || 1;
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const visiblePets = filteredPets.slice(startIndex, startIndex + PAGE_SIZE);
+
+  // suggestions (unique shelter name + address combos)
+  const locationSuggestions = Array.from(
+    new Set(
+      pets
+        .map((p) => `${p.shelterName} – ${p.shelterAddress}`)
+        .filter((s) => s.toLowerCase().includes(locationQuery.toLowerCase()))
+    )
+  ).slice(0, 5);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -84,11 +110,17 @@ const BrowsePets = () => {
         <section className="bg-[#5699C9] py-10">
           <div className="max-w-5xl mx-auto flex flex-col gap-8 px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="flex flex-col items-center">
-                <button className="w-full md:w-80 bg-blue-300 text-white rounded-full py-3 px-6 flex items-center justify-between shadow-md">
-                  <span>Any Location</span>
-                  <span className="text-lg">▼</span>
-                </button>
+              <div className="flex flex-col items-center w-full">
+                <input
+                  type="text"
+                  placeholder="Search by shelter, address, or city"
+                  value={locationQuery}
+                  onChange={(e) => {
+                    setLocationQuery(e.target.value);
+                    setCurrentPage(1); // reset to first page when searching
+                  }}
+                  className="w-full md:w-80 bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
                 <p className="text-white mt-2 text-sm">
                   Search by Shelter Location
                 </p>
@@ -129,17 +161,17 @@ const BrowsePets = () => {
 
           {!loading && !error && (
             <>
-              <div className="max-w-8xl mx-auto w-full px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="max-w-6xl mx-auto w-full px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {visiblePets.map((pet) => (
-                    <PetCard key={pet.petID} pet={pet} />
+                  <PetCard key={pet.petID} pet={pet} />
                 ))}
 
-                {pets.length === 0 && (
-                    <p className="col-span-full text-center text-gray-500">
-                    No pets found.
-                    </p>
+                {filteredPets.length === 0 && !loading && !error && (
+                  <p className="col-span-full text-center text-gray-500">
+                    No pets found for this location.
+                  </p>
                 )}
-                </div>
+              </div>
 
               {/* Pagination controls */}
               {pets.length > PAGE_SIZE && (

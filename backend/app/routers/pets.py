@@ -47,6 +47,7 @@ def list_pets(db: Session = Depends(get_db)):
                 status=p.status, # type: ignore
                 intakeDate=p.intakeDate, # type: ignore
                 shelterName=p.shelter.name,  # from relationship
+                shelterAddress=p.shelter.address,  # from relationship
             )
         )
 
@@ -54,30 +55,33 @@ def list_pets(db: Session = Depends(get_db)):
 
 @router.get("/pets/{pet_id}", response_model=PetDetailOut)
 def get_pet(pet_id: int, db: Session = Depends(get_db)):
-    pet = (
-        db.query(models.Pet, models.Shelter.name.label("shelterName"))
+    # join Pet + Shelter so we can get address
+    row = (
+        db.query(models.Pet, models.Shelter)
         .join(models.Shelter, models.Pet.shelterID == models.Shelter.shelterID)
         .filter(models.Pet.petID == pet_id)
         .first()
     )
 
-    if not pet:
+    if not row:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    (pet_obj, shelterName) = pet
-    ageYears = None
-    if pet_obj.dob:
-        ageYears = round((date.today() - pet_obj.dob).days / 365, 1)
+    pet, shelter = row
 
-    return {
-        "petID": pet_obj.petID,
-        "name": pet_obj.name,
-        "species": pet_obj.species,
-        "breed": pet_obj.breed,
-        "sex": pet_obj.sex,
-        "status": pet_obj.status,
-        "dob": pet_obj.dob,
-        "intakeDate": pet_obj.intakeDate,
-        "shelterName": shelterName,
-        "ageYears": ageYears,
-    }
+    ageYears = None
+    if pet.dob:
+        ageYears = round((date.today() - pet.dob).days / 365, 1)
+
+    return PetDetailOut(
+        petID=pet.petID,
+        name=pet.name,
+        species=pet.species,
+        breed=pet.breed,
+        sex=pet.sex,
+        dob=pet.dob,
+        status=pet.status,
+        intakeDate=pet.intakeDate,
+        shelterName=shelter.name,
+        shelterAddress=shelter.address,   # 👈 this was missing
+        ageYears=ageYears,
+    )

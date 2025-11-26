@@ -15,7 +15,6 @@ class PetOut(BaseModel):
     status: str
     intakeDate: date
     shelterName: str
-    shelterAddress: str
     
     class Config:
         orm_mode = True
@@ -31,8 +30,8 @@ class PetDetailOut(BaseModel):
     status: str
     intakeDate: date
     shelterName: str
+    shelterAddress: str     
     ageYears: Optional[float]
-    shelterAddress: str
 
     class Config:
         orm_mode = True

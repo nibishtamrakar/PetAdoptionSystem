@@ -1,8 +1,10 @@
 # app/routers/pets.py
 from datetime import date
-from typing import List
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.database import SessionLocal
 from app import models
@@ -18,44 +20,57 @@ def get_db():
     finally:
         db.close()
 
-
 @router.get("/pets", response_model=List[PetOut])
-def list_pets(db: Session = Depends(get_db)):
-    """
-    Return all pets that are AVAILABLE or HOLD,
-    along with their shelter name.
-    """
-    # join Pet -> Shelter, filter by status
-    pets = (
-        db.query(models.Pet)
-        .join(models.Shelter)
+def list_pets(
+    q_location: Optional[str] = None,
+    q_animal: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(models.Pet, models.Shelter.name.label("shelterName"))
+        .join(models.Shelter, models.Pet.shelterID == models.Shelter.shelterID)
         .filter(models.Pet.status.in_(["AVAILABLE", "HOLD"]))
-        .all()
     )
 
-    # build list of PetOut including shelterName
-    result: List[PetOut] = []
-    for p in pets:
-        result.append(
-            PetOut(
-                petID=p.petID, # type: ignore
-                name=p.name, # type: ignore
-                species=p.species, # type: ignore
-                breed=p.breed, # type: ignore
-                sex=p.sex,  # type: ignore
-                dob=p.dob, # type: ignore
-                status=p.status, # type: ignore
-                intakeDate=p.intakeDate, # type: ignore
-                shelterName=p.shelter.name,  # from relationship
-                shelterAddress=p.shelter.address,  # from relationship
+    if q_location:
+        like = f"%{q_location}%"
+        query = query.filter(
+            or_(
+                models.Shelter.name.ilike(like),
+                models.Shelter.address.ilike(like),
             )
         )
 
-    return result
+    if q_animal:
+        like = f"%{q_animal}%"
+        query = query.filter(
+            or_(
+                models.Pet.species.ilike(like),
+                models.Pet.breed.ilike(like),
+            )
+        )
+
+    rows = query.all()
+
+    return [
+        PetOut(
+            petID=p.petID,
+            name=p.name,
+            species=p.species,
+            breed=p.breed,
+            sex=p.sex,
+            dob=p.dob,
+            status=p.status,
+            intakeDate=p.intakeDate,
+            shelterName=sname,
+        )
+        for p, sname in rows
+    ]
+
+
 
 @router.get("/pets/{pet_id}", response_model=PetDetailOut)
 def get_pet(pet_id: int, db: Session = Depends(get_db)):
-    # join Pet + Shelter so we can get address
     row = (
         db.query(models.Pet, models.Shelter)
         .join(models.Shelter, models.Pet.shelterID == models.Shelter.shelterID)
@@ -82,6 +97,6 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         status=pet.status,
         intakeDate=pet.intakeDate,
         shelterName=shelter.name,
-        shelterAddress=shelter.address,   # 👈 this was missing
+        shelterAddress=shelter.address,  # keep this if you add it to schema
         ageYears=ageYears,
     )

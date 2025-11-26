@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import Navbar from "../components/Navbar"
+import Navbar from "../components/Navbar";
 import PetCard from "../components/PetCard";
 
 const BrowsePets = () => {
@@ -11,6 +11,7 @@ const BrowsePets = () => {
   const [error, setError] = useState(null);
 
   const [locationQuery, setLocationQuery] = useState("");
+  const [animalQuery, setAnimalQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
 
@@ -19,32 +20,33 @@ const BrowsePets = () => {
     navigate("/login");
   };
 
-  const fetchPets = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+ const fetchPets = async () => {
+  try {
+    setLoading(true);
 
-      const res = await fetch("http://127.0.0.1:8000/api/pets");
-      if (!res.ok) {
-        setError("Failed to load pets");
-        setLoading(false);
-        return;
-      }
+    const params = new URLSearchParams();
+    if (locationQuery) params.append("q_location", locationQuery);
+    if (animalQuery) params.append("q_animal", animalQuery);
 
-      const data = await res.json();
-      setPets(data);
-      setCurrentPage(1);
-    } catch (err) {
-      console.error("Error fetching pets:", err);
-      setError("Network error");
-    } finally {
-      setLoading(false);
+    const res = await fetch(`http://127.0.0.1:8000/api/pets?${params.toString()}`);
+
+    if (!res.ok) {
+      setError("Failed to load pets");
+      return;
     }
-  };
 
-  useEffect(() => {
-    fetchPets();
-  }, []);
+    const data = await res.json();
+    setPets(data);
+  } catch (err) {
+    setError("Network error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+ useEffect(() => {
+  fetchPets();
+}, [locationQuery, animalQuery]);
 
   // const totalPages = Math.ceil(pets.length / PAGE_SIZE) || 1;
   // const startIndex = (currentPage - 1) * PAGE_SIZE;
@@ -127,11 +129,21 @@ const BrowsePets = () => {
               </div>
 
               <div className="flex flex-col items-center">
-                <button className="w-full md:w-80 bg-blue-300 text-white rounded-full py-3 px-6 flex items-center justify-between shadow-md">
-                  <span>Any Animal</span>
-                  <span className="text-lg">▼</span>
-                </button>
-                <p className="text-white mt-2 text-sm">Search by Animal</p>
+                <div className="w-full md:w-80 bg-white rounded-full flex items-center shadow-md overflow-hidden">
+                  <input
+                    type="text"
+                    placeholder="Search by animal species or breed"
+                    value={animalQuery}
+                    onChange={(e) => {
+                      setAnimalQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full md:w-80 bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <p className="text-white mt-2 text-sm">
+                  Search by Animal
+                </p>
               </div>
             </div>
           </div>

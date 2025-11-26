@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config";   // 👈 use shared base URL
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ const Signup = () => {
     name: "",
     email: "",
     phone: "",
-    password: "",
+    password: ""
   });
 
   const [error, setError] = useState(null);
@@ -19,14 +20,14 @@ const Signup = () => {
     setError(null);
     setSuccess(null);
 
-    // validate required fields (include password)
+    // validate fields
     if (!form.name || !form.email || !form.phone || !form.password) {
-      setError("All fields are required");
+      setError("All fields are required.");
       return;
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/signup`, {
+      const res = await fetch(`${API_BASE}/api/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -36,24 +37,20 @@ const Signup = () => {
           email: form.email,
           phone: form.phone,
           password: form.password,
-          // role is ignored by backend for now (defaults to ADOPTER)
         }),
       });
 
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (_) {
-        // ignore JSON parse errors
-      }
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError((data && data.detail) || "Signup failed");
+        setError(data?.detail || "Signup failed.");
         return;
       }
 
-      setSuccess("Account created!");
+      // success
+      setSuccess("Signup successful! Redirecting...");
       setTimeout(() => navigate("/login"), 1500);
+
     } catch (err) {
       console.error("Signup error:", err);
       setError("Network error");
@@ -61,64 +58,60 @@ const Signup = () => {
   };
 
   return (
-    <>
-      <div className="flex h-screen">
-        <div className="w-[60%] bg-blue-300 flex flex-col align-middle justify-center pl-20 text-white">
-          <div className="text-center">
-            <h1 className="text-6xl font-extrabold mb-4">Welcome</h1>
-            <p className="text-2xl">
-              You can create a new account and start finding your PawFect Match.
-            </p>
-          </div>
-        </div>
-
-        <div className="w-[40%] bg-gray-100 flex flex-col justify-center items-center">
-          <h2 className="text-5xl font-bold text-blue-400 mb-6">Sign Up</h2>
-
-          {error && <p className="text-red-500 mb-2">{error}</p>}
-          {success && <p className="text-green-600 mb-2">{success}</p>}
-
-          <input
-            type="text"
-            placeholder="Name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
-          <input
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
-          <input
-            type="tel"
-            placeholder="Phone Number"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
-          <button
-            className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-4 px-20 rounded-full shadow-lg text-lg transition-all duration-200"
-            onClick={handleSubmit}
-          >
-            Sign Up
-          </button>
+    <div className="flex h-screen">
+      <div className="w-[60%] bg-blue-300 flex flex-col justify-center pl-20 text-white">
+        <div className="text-center">
+          <h1 className="text-6xl font-extrabold mb-4">Welcome</h1>
+          <p className="text-2xl">Create your account and find your PawFect Match.</p>
         </div>
       </div>
-    </>
+
+      <div className="w-[40%] bg-gray-100 flex flex-col justify-center items-center">
+        <h2 className="text-5xl font-bold text-blue-400 mb-6">Sign Up</h2>
+
+        {error && <p className="text-red-500 mb-2">{error}</p>}
+        {success && <p className="text-green-600 mb-2">{success}</p>}
+
+        <input
+          type="text"
+          placeholder="Name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+
+        <input
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+
+        <input
+          type="tel"
+          placeholder="Phone Number"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className="border border-blue-300 rounded-full p-5 w-80 mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+
+        <button
+          className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-4 px-20 rounded-full shadow-lg text-lg transition-all duration-200"
+          onClick={handleSubmit}
+        >
+          Sign Up
+        </button>
+      </div>
+    </div>
   );
 };
 

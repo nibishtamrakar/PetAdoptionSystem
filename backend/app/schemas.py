@@ -15,6 +15,7 @@ class PetOut(BaseModel):
     status: str
     intakeDate: date
     shelterName: str
+    shelterAddress: str
     
     class Config:
         orm_mode = True

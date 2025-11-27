@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 
-
 const Login = () => {
   const navigate = useNavigate();
 
@@ -24,6 +23,8 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
         },
+        // Uncomment this if your backend uses cookies for auth:
+        // credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
@@ -34,14 +35,17 @@ const Login = () => {
         return;
       }
 
-      // localStorage.setItem("user", JSON.stringify(data));
-      navigate("/browsepets");
+      // ✅ Save user/auth info so the rest of the app knows you're logged in
+      localStorage.setItem("user", JSON.stringify(data));
+
+      // ✅ Navigate to the browse page after successful login
+      navigate("/browsepets", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");
     }
   };
-  
+
   return (
     <div className="flex h-screen">
       <div className="w-[60%] bg-blue-300 flex flex-col align-middle justify-center pl-20 text-white">

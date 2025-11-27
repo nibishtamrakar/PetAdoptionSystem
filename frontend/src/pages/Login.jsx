@@ -35,11 +35,13 @@ const Login = () => {
         return;
       }
 
-      // ✅ Save user/auth info so the rest of the app knows you're logged in
       localStorage.setItem("user", JSON.stringify(data));
-
-      // ✅ Navigate to the browse page after successful login
-      navigate("/browsepets", { replace: true });
+      localStorage.setItem("token", data.access_token);
+      if (data.role === 'STAFF' || data.role === 'ADMIN') {
+        navigate("/staff/dashboard");
+      } else {
+        navigate("/browsepets");
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");

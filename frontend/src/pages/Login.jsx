@@ -34,8 +34,13 @@ const Login = () => {
         return;
       }
 
-      // localStorage.setItem("user", JSON.stringify(data));
-      navigate("/browsepets");
+      localStorage.setItem("user", JSON.stringify(data));
+      localStorage.setItem("token", data.access_token);
+      if (data.role === 'STAFF' || data.role === 'ADMIN') {
+        navigate("/staff/dashboard");
+      } else {
+        navigate("/browsepets");
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");

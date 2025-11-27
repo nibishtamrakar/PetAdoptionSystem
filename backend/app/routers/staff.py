@@ -1,116 +1,103 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from datetime import datetime, date
 from typing import List, Optional
-from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
-from app import models, schemas
-from app.routers.users import get_db, get_current_user
+from app.database import SessionLocal
+from app import models
+from app.schemas import (
+    CareLogCreate, CareLogOut,
+    ScheduleAppointmentIn, AppointmentOut,
+    PetOut, PetDetailOut
+)
+from app.routers.users import get_db
 
-router = APIRouter(prefix="/staff", tags=["staff"])
+router = APIRouter(prefix="/api", tags=["staff"])
 
-def getStaffShelter(db: Session, user_id: int):
-    staff = db.query(models.Staff).filter(models.Staff.userID == user_id).first()
-    if not staff:
+def get_current_staff(request: Request, db: Session = Depends(get_db)):
+    """Get the current staff member and their shelter ID"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a staff member"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
         )
-    return staff
-
-@router.get("/profile", response_model=schemas.StaffProfile)
-def get_profile(
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
-):
-    staff = getStaffShelter(db, current_user.userID)
-    return db.query(
-        models.UserAccount, models.Staff, models.Shelter
-    ).join(
-        models.Staff,
-        models.UserAccount.userID == models.Staff.userID
-    ).join(
-        models.Shelter,
-        models.Staff.shelterID == models.Shelter.shelterID
-    ).filter(
-        models.UserAccount.userID == current_user.userID
-    ).first()
-
-@router.get("/pets/", response_model=List[schemas.Pet])
-def get_shelter_pets(
-    status: Optional[str] = None,
-    species: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
-):
-    staff = getStaffShelter(db, current_user.userID)
-    query = db.query(models.Pet).filter(
-        models.Pet.shelterID == staff.shelterID
-    )
     
-    if status:
-        query = query.filter(models.Pet.status == status)
-    if species:
-        query = query.filter(models.Pet.species == species)
+    token = auth_header.split(" ")[1]
     
-    return query.offset(skip).limit(limit).all()
+    # Import verify_token from users module
+    from app.routers.users import verify_token
+    user_id = verify_token(token)
+    
+    try:
+        user = db.query(models.UserAccount).filter(
+            models.UserAccount.userID == user_id
+        ).first()
+        
+        if not user or user.role not in ["STAFF", "ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Staff access only",
+            )
+        
+        staff = db.query(models.Staff).filter(
+            models.Staff.userID == user_id
+        ).first()
+        
+        if not staff:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Staff profile not found",
+            )
+        return staff
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format",
+        )
 
-@router.post("/pets/", response_model=schemas.Pet, status_code=status.HTTP_201_CREATED)
-def create_pet(
-    pet: schemas.PetCreate,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+@router.post("/care-logs", response_model=CareLogOut, status_code=status.HTTP_201_CREATED)
+def create_care_log(
+    care_log: CareLogCreate,
+    request: Request,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
-    db_pet = models.Pet(
-        **pet.dict(),
-        shelterID=staff.shelterID,
-        status="AVAILABLE"
-    )
-    db.add(db_pet)
-    db.commit()
-    db.refresh(db_pet)
-    return db_pet
-
-@router.patch("/pets/{pet_id}", response_model=schemas.Pet)
-def update_pet(
-    pet_id: int,
-    pet_update: schemas.PetUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
-):
-    staff = getStaffShelter(db, current_user.userID)
-    db_pet = db.query(models.Pet).filter(
-        models.Pet.petID == pet_id,
+    staff = get_current_staff(request, db)
+    
+    # Verify pet belongs to staff's shelter
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == care_log.petID,
         models.Pet.shelterID == staff.shelterID
     ).first()
     
-    if not db_pet:
+    if not pet:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pet not found in your shelter"
+            detail="Pet not found in your shelter",
         )
     
-    update_data = pet_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_pet, field, value)
+    db_care_log = models.CareLog(
+        **care_log.dict(),
+        staffID=staff.staffID,
+        careDate=datetime.utcnow()
+    )
     
+    db.add(db_care_log)
     db.commit()
-    db.refresh(db_pet)
-    return db_pet
+    db.refresh(db_care_log)
+    return db_care_log
 
-@router.get("/care-logs/", response_model=List[schemas.CareLog])
+@router.get("/care-logs", response_model=List[CareLogOut])
 def get_care_logs(
+    request: Request,
     pet_id: Optional[int] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+    offset: int = 0,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
+    staff = get_current_staff(request, db)
+    
     query = db.query(models.CareLog).join(
         models.Pet,
         models.CareLog.petID == models.Pet.petID
@@ -120,100 +107,96 @@ def get_care_logs(
     
     if pet_id:
         query = query.filter(models.CareLog.petID == pet_id)
-    if start_date:
-        query = query.filter(models.CareLog.careDate >= start_date)
-    if end_date:
-        query = query.filter(models.CareLog.careDate <= end_date)
     
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(
+        models.CareLog.careDate.desc()
+    ).offset(offset).limit(limit).all()
 
-@router.post("/care-logs/", response_model=schemas.CareLog, status_code=status.HTTP_201_CREATED)
-def create_care_log(
-    care_log: schemas.CareLogCreate,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
-):
-    staff = getStaffShelter(db, current_user.userID)
-    pet = db.query(models.Pet).filter(
-        models.Pet.petID == care_log.petID,
-        models.Pet.shelterID == staff.shelterID
-    ).first()
-    
-    if not pet:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pet not found in your shelter"
-        )
-    
-    db_care_log = models.CareLog(
-        **care_log.dict(),
-        staffID=staff.userID,
-        careDate=datetime.utcnow()
-    )
-    
-    db.add(db_care_log)
-    db.commit()
-    db.refresh(db_care_log)
-    return db_care_log
-
-@router.delete("/care-logs/{care_log_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/care-logs/{care_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_care_log(
-    care_log_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+    care_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
+    staff = get_current_staff(request, db)
+    
     care_log = db.query(models.CareLog).join(
         models.Pet,
         models.CareLog.petID == models.Pet.petID
     ).filter(
-        models.CareLog.careID == care_log_id,
+        models.CareLog.careID == care_id,
         models.Pet.shelterID == staff.shelterID
     ).first()
     
     if not care_log:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Care log not found or not in your shelter"
+            detail="Care log not found or access denied",
         )
     
     db.delete(care_log)
     db.commit()
     return None
 
-@router.get("/appointments/", response_model=List[schemas.Appointment])
-def get_appointments(
+@router.get("/pets", response_model=List[PetOut])
+def get_shelter_pets(
+    request: Request,
     status: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+    offset: int = 0,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
+    staff = get_current_staff(request, db)
+    
+    query = db.query(
+        models.Pet,
+        models.Shelter.name.label("shelterName"),
+        models.Shelter.address.label("shelterAddress"),
+    ).join(
+        models.Shelter,
+        models.Pet.shelterID == models.Shelter.shelterID
+    ).filter(
+        models.Pet.shelterID == staff.shelterID
+    )
+    
+    if status:
+        query = query.filter(models.Pet.status == status)
+    
+    return query.offset(offset).limit(limit).all()
+
+@router.get("/appointments", response_model=List[AppointmentOut])
+def get_shelter_appointments(
+    request: Request,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    staff = get_current_staff(request, db)
+    
     query = db.query(models.Appointment).filter(
         models.Appointment.shelterID == staff.shelterID
     )
     
-    if status:
-        query = query.filter(models.Appointment.status == status)
     if start_date:
         query = query.filter(models.Appointment.appointmentTime >= start_date)
     if end_date:
-        query = query.filter(models.Appointment.appointmentTime <= end_date)
+        next_day = datetime.combine(end_date, datetime.min.time()) + timedelta(days=1)
+        query = query.filter(models.Appointment.appointmentTime < next_day)
     
-    return query.order_by(models.Appointment.appointmentTime).offset(skip).limit(limit).all()
+    return query.order_by(
+        models.Appointment.appointmentTime
+    ).offset(offset).limit(limit).all()
 
-@router.post("/appointments/", response_model=schemas.Appointment, status_code=status.HTTP_201_CREATED)
+@router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
 def create_appointment(
-    appointment: schemas.AppointmentCreate,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+    appointment: ScheduleAppointmentIn,
+    request: Request,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
+    staff = get_current_staff(request, db)
     
-    # Verify pet is in staff's shelter
     pet = db.query(models.Pet).filter(
         models.Pet.petID == appointment.petID,
         models.Pet.shelterID == staff.shelterID
@@ -222,28 +205,30 @@ def create_appointment(
     if not pet:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pet not found in your shelter"
+            detail="Pet not found in your shelter",
         )
     
-    db_appointment = models.Appointment(
-        **appointment.dict(),
-        shelterID=staff.shelterID,
-        status="SCHEDULED"
-    )
+    if appointment.shelterID != staff.shelterID:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot create appointment for another shelter",
+        )
     
+    db_appointment = models.Appointment(**appointment.dict())
     db.add(db_appointment)
     db.commit()
     db.refresh(db_appointment)
     return db_appointment
 
-@router.patch("/appointments/{appointment_id}", response_model=schemas.Appointment)
+@router.put("/appointments/{appointment_id}", response_model=AppointmentOut)
 def update_appointment(
     appointment_id: int,
-    appointment_update: schemas.AppointmentUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+    appointment: ScheduleAppointmentIn,
+    request: Request,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
+    staff = get_current_staff(request, db)
+    
     db_appointment = db.query(models.Appointment).filter(
         models.Appointment.appointmentID == appointment_id,
         models.Appointment.shelterID == staff.shelterID
@@ -252,26 +237,22 @@ def update_appointment(
     if not db_appointment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Appointment not found in your shelter"
+            detail="Appointment not found or access denied",
         )
     
-    update_data = appointment_update.dict(exclude_unset=True)
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == appointment.petID,
+        models.Pet.shelterID == staff.shelterID
+    ).first()
     
-    # If updating petID, verify the new pet is in the same shelter
-    if 'petID' in update_data:
-        pet = db.query(models.Pet).filter(
-            models.Pet.petID == update_data['petID'],
-            models.Pet.shelterID == staff.shelterID
-        ).first()
-        
-        if not pet:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Pet not found in your shelter"
-            )
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet not found in your shelter",
+        )
     
-    for field, value in update_data.items():
-        setattr(db_appointment, field, value)
+    for key, value in appointment.dict().items():
+        setattr(db_appointment, key, value)
     
     db.commit()
     db.refresh(db_appointment)
@@ -280,10 +261,11 @@ def update_appointment(
 @router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_appointment(
     appointment_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user)
+    request: Request,
+    db: Session = Depends(get_db)
 ):
-    staff = getStaffShelter(db, current_user.userID)
+    staff = get_current_staff(request, db)
+    
     appointment = db.query(models.Appointment).filter(
         models.Appointment.appointmentID == appointment_id,
         models.Appointment.shelterID == staff.shelterID
@@ -292,7 +274,7 @@ def delete_appointment(
     if not appointment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Appointment not found or not in your shelter"
+            detail="Appointment not found or access denied",
         )
     
     db.delete(appointment)

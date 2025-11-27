@@ -7,7 +7,8 @@ import Signup from './pages/Signup'
 import BrowsePets from './pages/BrowsePets'
 import PetDetail from './pages/PetDetail'
 import StaffDashboard from './pages/StaffDashboard'
-import { ProtectedRoute } from './services/auth.jsx';
+import StaffProfile from './pages/StaffProfile'
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -23,6 +24,9 @@ function App() {
         <Route path="/staff/dashboard" element=
           {<ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
             <StaffDashboard /> </ProtectedRoute>} />
+        <Route path="/staff/profile" element=
+          {<ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+            <StaffProfile /> </ProtectedRoute>} />
       </Routes>
     </Router>
     </>

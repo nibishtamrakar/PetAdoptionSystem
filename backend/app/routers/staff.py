@@ -57,7 +57,7 @@ def get_current_staff(request: Request, db: Session = Depends(get_db)):
             detail="Invalid user ID format",
         )
 
-@router.post("/care-logs", response_model=CareLogOut, status_code=status.HTTP_201_CREATED)
+@router.post("/staff-care-logs", response_model=CareLogOut, status_code=status.HTTP_201_CREATED)
 def create_care_log(
     care_log: CareLogCreate,
     request: Request,
@@ -88,7 +88,7 @@ def create_care_log(
     db.refresh(db_care_log)
     return db_care_log
 
-@router.get("/care-logs", response_model=List[CareLogOut])
+@router.get("/staff-care-logs", response_model=List[CareLogOut])
 def get_care_logs(
     request: Request,
     pet_id: Optional[int] = None,
@@ -112,7 +112,7 @@ def get_care_logs(
         models.CareLog.careDate.desc()
     ).offset(offset).limit(limit).all()
 
-@router.delete("/care-logs/{care_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/staff-care-logs/{care_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_care_log(
     care_id: int,
     request: Request,
@@ -138,7 +138,7 @@ def delete_care_log(
     db.commit()
     return None
 
-@router.get("/pets", response_model=List[PetOut])
+@router.get("/staff-pets", response_model=List[PetOut])
 def get_shelter_pets(
     request: Request,
     status: Optional[str] = None,
@@ -162,9 +162,27 @@ def get_shelter_pets(
     if status:
         query = query.filter(models.Pet.status == status)
     
-    return query.offset(offset).limit(limit).all()
+    rows = query.offset(offset).limit(limit).all()
+    
+    # Format the response to match PetOut schema
+    pets_out = []
+    for pet_obj, shelterName, shelterAddress in rows:
+        pets_out.append({
+            "petID": pet_obj.petID,
+            "name": pet_obj.name,
+            "species": pet_obj.species,
+            "breed": pet_obj.breed,
+            "sex": pet_obj.sex,
+            "dob": pet_obj.dob,
+            "status": pet_obj.status,
+            "intakeDate": pet_obj.intakeDate,
+            "shelterName": shelterName,
+            "shelterAddress": shelterAddress
+        })
+    
+    return pets_out
 
-@router.get("/appointments", response_model=List[AppointmentOut])
+@router.get("/staff-appointments", response_model=List[AppointmentOut])
 def get_shelter_appointments(
     request: Request,
     start_date: Optional[date] = None,
@@ -189,7 +207,7 @@ def get_shelter_appointments(
         models.Appointment.appointmentTime
     ).offset(offset).limit(limit).all()
 
-@router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
+@router.post("/staff-appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
 def create_appointment(
     appointment: ScheduleAppointmentIn,
     request: Request,
@@ -220,7 +238,7 @@ def create_appointment(
     db.refresh(db_appointment)
     return db_appointment
 
-@router.put("/appointments/{appointment_id}", response_model=AppointmentOut)
+@router.put("/staff-appointments/{appointment_id}", response_model=AppointmentOut)
 def update_appointment(
     appointment_id: int,
     appointment: ScheduleAppointmentIn,
@@ -258,7 +276,7 @@ def update_appointment(
     db.refresh(db_appointment)
     return db_appointment
 
-@router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/staff-appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_appointment(
     appointment_id: int,
     request: Request,

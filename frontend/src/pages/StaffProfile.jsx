@@ -20,7 +20,7 @@ const StaffProfile = () => {
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    navigate("/homepage", { replace: true });
+    navigate("/", { replace: true });
   };
 
   if (!user) {

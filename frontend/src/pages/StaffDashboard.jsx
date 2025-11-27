@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import StaffPetCard from "../components/StaffPetCard";
 import { API_BASE_URL } from "../config";
 
 const StaffDashboard = () => {
@@ -46,7 +47,7 @@ const StaffDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    navigate("/homepage", { replace: true });
+    navigate("/", { replace: true });
   };
 
   // Fetch data
@@ -67,9 +68,9 @@ const StaffDashboard = () => {
         };
         
         const [careLogsRes, appointmentsRes, petsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/care-logs`, { headers }),
-          fetch(`${API_BASE_URL}/api/appointments`, { headers }),
-          fetch(`${API_BASE_URL}/api/pets`, { headers })
+          fetch(`${API_BASE_URL}/api/staff-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/staff-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/staff-pets`, { headers })
         ]);
 
         if (!careLogsRes.ok || !appointmentsRes.ok || !petsRes.ok) {
@@ -105,7 +106,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/care-logs`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-care-logs`, {
         method: "POST",
         headers,
         body: JSON.stringify(newCareLog)
@@ -134,7 +135,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/care-logs/${careId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-care-logs/${careId}`, {
         method: "DELETE",
         headers
       });
@@ -159,7 +160,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/appointments`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-appointments`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -197,7 +198,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/appointments/${editingAppointment.appointmentID}`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-appointments/${editingAppointment.appointmentID}`, {
         method: "PUT",
         headers,
         body: JSON.stringify({
@@ -230,7 +231,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/appointments/${appointmentId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-appointments/${appointmentId}`, {
         method: "DELETE",
         headers
       });
@@ -245,6 +246,11 @@ const StaffDashboard = () => {
       console.error("Error deleting appointment:", err);
       setError("Network error");
     }
+  };
+
+  const handleEditPet = (pet) => {
+    // TODO: Open edit modal or navigate to edit page
+    console.log("Edit pet:", pet);
   };
 
   if (loading) {
@@ -521,15 +527,9 @@ const StaffDashboard = () => {
         {/* Pets Section */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">Pets in Shelter</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {pets.map(pet => (
-              <div key={pet.petID} className="border border-gray-200 rounded-lg p-4">
-                <h3 className="font-semibold text-lg">{pet.name}</h3>
-                <p className="text-gray-600">{pet.species} - {pet.breed}</p>
-                <p className="text-gray-600">{pet.sex}</p>
-                <p className="text-gray-600">Status: {pet.status}</p>
-                <p className="text-sm text-gray-500">Intake: {new Date(pet.intakeDate).toLocaleDateString()}</p>
-              </div>
+              <StaffPetCard key={pet.petID} pet={pet} onEdit={handleEditPet} />
             ))}
           </div>
         </div>

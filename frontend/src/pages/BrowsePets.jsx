@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, replace } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import PetCard from "../components/PetCard";
 
+
 const BrowsePets = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
   const [pets, setPets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +25,7 @@ const BrowsePets = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
-    navigate("/login");
+    navigate("/homepage", {replace: true});
   };
 
  const fetchPets = async () => {
@@ -90,9 +98,6 @@ const BrowsePets = () => {
       {/* NAVBAR */}
       <Navbar>
         <div>
-          <Link to="/home" className="text-2xl font-bold text-white p-6">
-            Home
-          </Link>
           <Link to="/profile" className="text-2xl font-bold text-white p-6">
             Profile
           </Link>

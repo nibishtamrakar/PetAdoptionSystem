@@ -1,5 +1,5 @@
 # app/routers/users.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 import hashlib
 import hmac
@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from app.database import SessionLocal
 from app import models
 from app.schemas import UserSignupIn, UserOut, LoginIn, LoginOut
-
 load_dotenv()  # load .env file
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -33,6 +32,35 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return hmac.compare_digest(hash_password(plain), str(hashed))
+
+def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db)
+) -> models.UserAccount:
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    
+    try:
+        user = db.query(models.UserAccount).filter(
+            models.UserAccount.userID == int(user_id)
+        ).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+            
+        return user
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID format",
+        )
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -71,6 +99,13 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
-        )
+            )
 
     return user
+
+
+@router.post("/logout")
+def logout(response: Response):
+    # Clear the session cookie
+    response.delete_cookie("user_id")
+    return {"message": "Successfully logged out"}

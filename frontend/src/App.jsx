@@ -6,6 +6,8 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import BrowsePets from './pages/BrowsePets'
 import PetDetail from './pages/PetDetail'
+import StaffDashboard from './pages/StaffDashboard'
+import { ProtectedRoute } from './services/auth.jsx';
 
 function App() {
   return (
@@ -18,6 +20,9 @@ function App() {
         <Route path="/Signup" element={<Signup />} />
         <Route path="/BrowsePets" element={<BrowsePets />} />
         <Route path="/pet/:id" element={<PetDetail />} />
+        <Route path="/staff/dashboard" element=
+          {<ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+            <StaffDashboard /> </ProtectedRoute>} />
       </Routes>
     </Router>
     </>

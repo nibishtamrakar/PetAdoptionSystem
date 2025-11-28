@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Enum, Date, DateTime, Text,
-    ForeignKey
+    ForeignKey, Index
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -42,8 +42,10 @@ class Shelter(Base):
     pets = relationship("Pet", back_populates="shelter")
     appointments = relationship("Appointment", back_populates="shelter")
 
-    # staff assigned to this shelter
-    staff_members = relationship("Staff", back_populates="shelter")
+    __table_args__ = (
+        Index("ix_shelter_name", "name"),
+        Index("ix_shelter_address", "address"),
+    )
 
 
 # 3. ---------- STAFF (NEW LINK TABLE USERACCOUNT <-> SHELTER) ----------
@@ -71,11 +73,7 @@ class Pet(Base):
     breed = Column(String(50))
     sex = Column(Enum("M", "F", "UNKNOWN", name="pet_sex"), nullable=False, default="UNKNOWN")
     dob = Column(Date)
-    status = Column(
-        Enum("AVAILABLE", "HOLD", "ADOPTED", name="pet_status"),
-        nullable=False,
-        default="AVAILABLE"
-    )
+    status = Column(Enum("AVAILABLE", "HOLD", "ADOPTED", name="pet_status"), nullable=False, default="AVAILABLE")
     intakeDate = Column(Date, nullable=False)
 
     shelter = relationship("Shelter", back_populates="pets")
@@ -83,6 +81,14 @@ class Pet(Base):
     appointments = relationship("Appointment", back_populates="pet")
     care_logs = relationship("CareLog", back_populates="pet")
     vaccines = relationship("PetVaccine", back_populates="pet")
+
+    __table_args__ = (
+        Index("ix_pet_status", "status"),
+        Index("ix_pet_species", "species"),
+        Index("ix_pet_breed", "breed"),
+        Index("ix_pet_shelterID", "shelterID"),
+    )
+
 
 
 # 5. ---------- VACCINE ----------

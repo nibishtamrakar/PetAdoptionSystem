@@ -8,6 +8,8 @@ import BrowsePets from './pages/BrowsePets'
 import PetDetail from './pages/PetDetail'
 import StaffDashboard from './pages/StaffDashboard'
 import StaffProfile from './pages/StaffProfile'
+import AdminDashboard from './pages/AdminDashboard'
+import ShelterDetail from './pages/ShelterDetail'
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -27,6 +29,12 @@ function App() {
         <Route path="/staff/profile" element=
           {<ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
             <StaffProfile /> </ProtectedRoute>} />
+        <Route path="/admin/shelter/:id" element=
+          {<ProtectedRoute allowedRoles={['ADMIN']}>
+            <ShelterDetail /> </ProtectedRoute>} />
+        <Route path="/admin/dashboard" element=
+          {<ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminDashboard /> </ProtectedRoute>} />
       </Routes>
     </Router>
     </>

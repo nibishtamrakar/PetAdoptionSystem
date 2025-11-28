@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link, replace } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import PetCard from "../components/PetCard";
-
+import { API_BASE_URL } from "../config";
 
 const BrowsePets = () => {
   const navigate = useNavigate();
@@ -24,19 +24,28 @@ const BrowsePets = () => {
   const PAGE_SIZE = 9;
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/homepage", {replace: true});
-  };
+  localStorage.removeItem("user");
+  localStorage.removeItem("token");
+  navigate("/login", { replace: true });
+};
 
  const fetchPets = async () => {
   try {
     setLoading(true);
+    setError(null);
 
     const params = new URLSearchParams();
     if (locationQuery) params.append("q_location", locationQuery);
     if (animalQuery) params.append("q_animal", animalQuery);
 
-    const res = await fetch(`http://127.0.0.1:8000/api/pets?${params.toString()}`);
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_BASE_URL}/api/pets?${params.toString()}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
 
     if (!res.ok) {
       setError("Failed to load pets");
@@ -46,6 +55,7 @@ const BrowsePets = () => {
     const data = await res.json();
     setPets(data);
   } catch (err) {
+    console.error("Fetch pets error:", err);
     setError("Network error");
   } finally {
     setLoading(false);

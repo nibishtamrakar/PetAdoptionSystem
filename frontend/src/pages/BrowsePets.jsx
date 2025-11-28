@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import PetCard from "../components/PetCard";
 import { API_BASE_URL } from "../config";
+// appointment testing
+import AppointmentModal from "../components/AppointmentModal";
 
 const BrowsePets = () => {
   const navigate = useNavigate();
@@ -22,6 +24,9 @@ const BrowsePets = () => {
   const [animalQuery, setAnimalQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
+
+  // appointment testing
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
   const handleLogout = () => {
   localStorage.removeItem("user");
@@ -165,7 +170,8 @@ const BrowsePets = () => {
         </section>
 
         {/* CARDS GRID */}
-        <section className="py-10">
+
+        {/* <section className="py-10">
           <div className="flex justify-center gap-4 mb-8">
             <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
               Sex
@@ -176,7 +182,31 @@ const BrowsePets = () => {
             <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
               Size
             </button>
+          </div> */}
+
+        {/* appointment testing */}
+        <section className="py-10">
+          <div className="flex flex-col items-center gap-4 mb-8">
+            <div className="flex justify-center gap-4">
+              <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
+                Sex
+              </button>
+              <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
+                Age
+              </button>
+              <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
+                Size
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowAppointmentModal(true)}
+              className="px-8 py-2 rounded-full bg-green-500 text-white shadow hover:bg-green-600"
+            >
+              Schedule Appointment (Test)
+            </button>
           </div>
+
 
           {loading && (
             <p className="text-center text-gray-500">Loading pets...</p>
@@ -234,6 +264,10 @@ const BrowsePets = () => {
           )}
         </section>
       </div>
+      <AppointmentModal
+        open={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+      />
     </div>
   );
 };

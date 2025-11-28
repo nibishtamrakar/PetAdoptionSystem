@@ -18,6 +18,7 @@ from app.schemas import (
     LoginIn,
     LoginOut,
     AdoptionOut,
+    ScheduleAppointmentIn,
     AppointmentOut,
 )
 
@@ -174,3 +175,25 @@ def logout(response: Response):
     # Clear the session cookie
     response.delete_cookie("user_id")
     return {"message": "Successfully logged out"}
+
+@router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
+def schedule_appointment(payload: ScheduleAppointmentIn, db: Session = Depends(get_db), current_user: models.UserAccount = Depends(get_current_user)):
+    """
+    Create a new appointment for the currently logged-in user (adopter).
+    adopterID comes from the JWT token (current_user.userID).
+    """
+    # You can add optional validation that pet/shelter exist here if you want
+
+    appt = models.Appointment(
+        petID=payload.petID,
+        adopterID=current_user.userID,      # from token
+        shelterID=payload.shelterID,
+        appointmentTime=payload.appointmentTime,
+        appointmentType=payload.appointmentType,
+    )
+
+    db.add(appt)
+    db.commit()
+    db.refresh(appt)
+
+    return appt

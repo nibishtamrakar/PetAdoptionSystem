@@ -62,7 +62,7 @@ class AdoptionOut(BaseModel):
 
 class ScheduleAppointmentIn(BaseModel):
     petID: int
-    adopterID: int
+    # adopterID: int    // adopterID from Logged In user
     shelterID: int
     appointmentTime: datetime
     appointmentType: str

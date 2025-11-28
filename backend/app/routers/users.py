@@ -11,15 +11,23 @@ from dotenv import load_dotenv
 from app.database import SessionLocal
 from app import models
 from app.schemas import UserSignupIn, UserOut, LoginIn, LoginOut
+
 load_dotenv()  # load .env file
 
 router = APIRouter(prefix="/api", tags=["users"])
 
-# Load pepper from environment
-SECRET_PEPPER = os.getenv("SECRET_PEPPER", "fallback-dev-pepper")
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+# ---- Environment variables ----
+_pepper = os.getenv("SECRET_PEPPER")
+_jwt_key = os.getenv("JWT_SECRET_KEY")
+
+if _pepper is None or _jwt_key is None:
+    raise RuntimeError("Missing required environment variables: SECRET_PEPPER and/or JWT_SECRET_KEY")
+
+SECRET_PEPPER: str = _pepper
+JWT_SECRET_KEY: str = _jwt_key
+
+JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRATION_HOURS: int = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
 
 def get_db():
@@ -37,10 +45,11 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
+
 def verify_token(token: str):
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        user_id: int = payload.get("sub")
+        user_id: int | None = payload.get("sub")
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,7 +62,9 @@ def verify_token(token: str):
             detail="Invalid token",
         )
 
+
 def hash_password(password: str) -> str:
+    # ✅ pepper is guaranteed non-None here
     pw_bytes = (password + SECRET_PEPPER).encode("utf-8")
     return hashlib.sha256(pw_bytes).hexdigest()
 

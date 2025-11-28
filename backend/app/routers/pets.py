@@ -71,7 +71,7 @@ def list_pets(
                 status=pet_obj.status,
                 intakeDate=pet_obj.intakeDate,
                 shelterName=shelterName,
-                shelterAddress=shelterAddress,   # 👈 now populated
+                shelterAddress=shelterAddress,  
             )
         )
 
@@ -108,6 +108,6 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         status=pet.status,
         intakeDate=pet.intakeDate,
         shelterName=shelter.name,
-        shelterAddress=shelter.address,  # keep this if you add it to schema
+        shelterAddress=shelter.address, 
         ageYears=ageYears,
     )

@@ -85,9 +85,9 @@ const Login = () => {
             loading ? "opacity-60 cursor-not-allowed" : ""
           }`}
           onClick={handleLogin}
-          disabled={loading}  // 👈 disable while loading
+          disabled={loading}  
         >
-          {loading ? "Signing in..." : "Sign In"}  {/* 👈 feedback */}
+          {loading ? "Signing in..." : "Sign In"}  
         </button>
       </div>
     </div>

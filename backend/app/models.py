@@ -17,7 +17,7 @@ class UserAccount(Base):
     role = Column(
         Enum("ADOPTER", "STAFF", "ADMIN", name="user_role"),
         nullable=False,
-        default="ADOPTER" ,     # SQLAlchemy default
+        default="ADOPTER",       # SQLAlchemy default
         server_default="ADOPTER" # DB default
     )
     passwordHash = Column(String(255), nullable=False)
@@ -42,13 +42,15 @@ class Shelter(Base):
     pets = relationship("Pet", back_populates="shelter")
     appointments = relationship("Appointment", back_populates="shelter")
 
+    staff_members = relationship("Staff", back_populates="shelter")
+
     __table_args__ = (
         Index("ix_shelter_name", "name"),
         Index("ix_shelter_address", "address"),
     )
 
 
-# 3. ---------- STAFF (NEW LINK TABLE USERACCOUNT <-> SHELTER) ----------
+# 3. ---------- STAFF ----------
 class Staff(Base):
     __tablename__ = "Staff"
 
@@ -88,7 +90,6 @@ class Pet(Base):
         Index("ix_pet_breed", "breed"),
         Index("ix_pet_shelterID", "shelterID"),
     )
-
 
 
 # 5. ---------- VACCINE ----------

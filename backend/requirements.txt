@@ -7,5 +7,4 @@ passlib[bcrypt]
 pydantic[email]
 python-dotenv
 python-jose[cryptography]
-pyjwt
-jwt
+PyJWT

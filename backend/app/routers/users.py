@@ -1,6 +1,8 @@
 # app/routers/users.py
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
+from typing import List, Optional
+from datetime import datetime
 import hashlib
 import hmac
 import os
@@ -10,7 +12,15 @@ from dotenv import load_dotenv
 
 from app.database import SessionLocal
 from app import models
-from app.schemas import UserSignupIn, UserOut, LoginIn, LoginOut
+from app.schemas import (
+    UserSignupIn,
+    UserOut,
+    LoginIn,
+    LoginOut,
+    AdoptionOut,
+    AppointmentOut,
+)
+
 load_dotenv()  # load .env file
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -88,6 +98,8 @@ def get_current_user(
     return user
 
 
+# ========== EXISTING ENDPOINTS ==========
+
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def signup(payload: UserSignupIn, db: Session = Depends(get_db)):
     existing = db.query(models.UserAccount).filter(
@@ -111,6 +123,7 @@ def signup(payload: UserSignupIn, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
     return user
 
 
@@ -125,7 +138,7 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
     if user:
         print(f"DEBUG: User role: {user.role}")
 
-    if not user or not verify_password(payload.password, user.passwordHash): # type: ignore
+    if not user or not verify_password(payload.password, user.passwordHash):  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",

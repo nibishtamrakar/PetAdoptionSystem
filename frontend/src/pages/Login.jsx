@@ -8,8 +8,10 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);   // 👈 NEW
 
   const handleLogin = async () => {
+    if (loading) return; // prevent double-clicks
     setError(null);
 
     if (!email || !password) {
@@ -18,13 +20,14 @@ const Login = () => {
     }
 
     try {
+      setLoading(true);  // 👈 start loading
+
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // Uncomment this if your backend uses cookies for auth:
-        // credentials: "include",
+        // credentials: "include", // only if you're using cookies
         body: JSON.stringify({ email, password }),
       });
 
@@ -47,6 +50,8 @@ const Login = () => {
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");
+    } finally {
+      setLoading(false); // 👈 stop loading
     }
   };
 
@@ -83,10 +88,13 @@ const Login = () => {
         />
 
         <button
-          className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-4 px-20 rounded-full shadow-lg text-lg transition-all duration-200"
+          className={`bg-blue-400 hover:bg-blue-500 text-white font-bold py-4 px-20 rounded-full shadow-lg text-lg transition-all duration-200 ${
+            loading ? "opacity-60 cursor-not-allowed" : ""
+          }`}
           onClick={handleLogin}
+          disabled={loading}  
         >
-          Sign In
+          {loading ? "Signing in..." : "Sign In"}  
         </button>
       </div>
     </div>

@@ -39,7 +39,14 @@ const Login = () => {
       }
 
       localStorage.setItem("user", JSON.stringify(data));
-      navigate("/browsepets", { replace: true });
+      localStorage.setItem("token", data.access_token);
+      if (data.role === 'ADMIN') {
+        navigate("/admin/dashboard");
+      } else if (data.role === 'STAFF') {
+        navigate("/staff/dashboard");
+      } else {
+        navigate("/browsepets");
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");

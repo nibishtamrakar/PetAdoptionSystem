@@ -9,7 +9,8 @@ from app import models
 from app.schemas import (
     CareLogCreate, CareLogOut,
     ScheduleAppointmentIn, AppointmentOut,
-    PetOut, PetDetailOut
+    PetOut, PetDetailOut, UserOut, AdoptionOut,
+    VaccineOut, PetVaccineOut
 )
 from app.routers.users import get_db
 
@@ -79,7 +80,7 @@ def create_care_log(
     
     db_care_log = models.CareLog(
         **care_log.dict(),
-        staffID=staff.staffID,
+        staffID=staff.userID,
         careDate=datetime.utcnow()
     )
     
@@ -137,6 +138,164 @@ def delete_care_log(
     db.delete(care_log)
     db.commit()
     return None
+
+@router.get("/users", response_model=List[UserOut])
+def get_users(request: Request, db: Session = Depends(get_db)):
+    """Get all users (for staff dashboard to show adopter names)"""
+    staff = get_current_staff(request, db)
+    
+    users = db.query(models.UserAccount).all()
+    return users
+
+# Homepage endpoints
+@router.get("/recent-care-logs", response_model=List[CareLogOut])
+def get_recent_care_logs(request: Request, limit: int = 10, db: Session = Depends(get_db)):
+    """Get recent care logs for homepage"""
+    staff = get_current_staff(request, db)
+    
+    care_logs = db.query(models.CareLog).join(
+        models.Pet,
+        models.CareLog.petID == models.Pet.petID
+    ).filter(
+        models.Pet.shelterID == staff.shelterID
+    ).order_by(
+        models.CareLog.careDate.desc()
+    ).limit(limit).all()
+    
+    return care_logs
+
+@router.get("/upcoming-appointments", response_model=List[AppointmentOut])
+def get_upcoming_appointments(request: Request, db: Session = Depends(get_db)):
+    """Get upcoming appointments for homepage"""
+    staff = get_current_staff(request, db)
+    from datetime import datetime
+    
+    appointments = db.query(models.Appointment).filter(
+        models.Appointment.shelterID == staff.shelterID,
+        models.Appointment.appointmentTime > datetime.utcnow()
+    ).order_by(
+        models.Appointment.appointmentTime.asc()
+    ).all()
+    
+    return appointments
+
+# History endpoints
+@router.get("/all-care-logs", response_model=List[CareLogOut])
+def get_all_care_logs(request: Request, db: Session = Depends(get_db)):
+    """Get all care logs for history"""
+    staff = get_current_staff(request, db)
+    
+    care_logs = db.query(models.CareLog).join(
+        models.Pet,
+        models.CareLog.petID == models.Pet.petID
+    ).filter(
+        models.Pet.shelterID == staff.shelterID
+    ).order_by(
+        models.CareLog.careDate.desc()
+    ).all()
+    
+    return care_logs
+
+@router.get("/past-appointments", response_model=List[AppointmentOut])
+def get_past_appointments(request: Request, db: Session = Depends(get_db)):
+    """Get past appointments for history"""
+    staff = get_current_staff(request, db)
+    from datetime import datetime
+    
+    appointments = db.query(models.Appointment).filter(
+        models.Appointment.shelterID == staff.shelterID,
+        models.Appointment.appointmentTime <= datetime.utcnow()
+    ).order_by(
+        models.Appointment.appointmentTime.desc()
+    ).all()
+    
+    return appointments
+
+# Adoption requests endpoints
+@router.get("/adoption-requests", response_model=List[AdoptionOut])
+def get_adoption_requests(request: Request, db: Session = Depends(get_db)):
+    """Get adoption requests for pets in this shelter"""
+    staff = get_current_staff(request, db)
+    
+    # Get adoptions for pets in this shelter
+    adoptions = db.query(models.Adoption).join(
+        models.Pet,
+        models.Adoption.petID == models.Pet.petID
+    ).filter(
+        models.Pet.shelterID == staff.shelterID,
+        models.Adoption.status == "APPLIED"
+    ).all()
+    
+    return adoptions
+
+@router.put("/adoption-requests/{adoption_id}/accept")
+def accept_adoption_request(adoption_id: int, request: Request, db: Session = Depends(get_db)):
+    """Accept an adoption request"""
+    staff = get_current_staff(request, db)
+    
+    adoption = db.query(models.Adoption).filter(
+        models.Adoption.adoptionID == adoption_id
+    ).first()
+    
+    if not adoption:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Adoption request not found"
+        )
+    
+    # Verify pet belongs to staff's shelter
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == adoption.petID,
+        models.Pet.shelterID == staff.shelterID
+    ).first()
+    
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Pet not in your shelter"
+        )
+    
+    # Update adoption status
+    adoption.status = "ACCEPTED"
+    
+    # Update pet status
+    pet.status = "ADOPTED"
+    
+    db.commit()
+    return {"message": "Adoption request accepted"}
+
+@router.put("/adoption-requests/{adoption_id}/reject")
+def reject_adoption_request(adoption_id: int, request: Request, db: Session = Depends(get_db)):
+    """Reject an adoption request"""
+    staff = get_current_staff(request, db)
+    
+    adoption = db.query(models.Adoption).filter(
+        models.Adoption.adoptionID == adoption_id
+    ).first()
+    
+    if not adoption:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Adoption request not found"
+        )
+    
+    # Verify pet belongs to staff's shelter
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == adoption.petID,
+        models.Pet.shelterID == staff.shelterID
+    ).first()
+    
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Pet not in your shelter"
+        )
+    
+    # Update adoption status
+    adoption.status = "REJECTED"
+    
+    db.commit()
+    return {"message": "Adoption request rejected"}
 
 @router.get("/staff-pets", response_model=List[PetOut])
 def get_shelter_pets(
@@ -297,4 +456,121 @@ def delete_appointment(
     
     db.delete(appointment)
     db.commit()
+    return None
+
+# Vaccine endpoints
+@router.get("/vaccines", response_model=List[VaccineOut])
+def get_vaccines(request: Request, db: Session = Depends(get_db)):
+    """Get all available vaccines"""
+    staff = get_current_staff(request, db)
+    
+    vaccines = db.query(models.Vaccine).all()
+    return vaccines
+
+@router.get("/pets/{pet_id}/vaccines", response_model=List[PetVaccineOut])
+def get_pet_vaccines(pet_id: int, request: Request, db: Session = Depends(get_db)):
+    """Get vaccines for a specific pet"""
+    staff = get_current_staff(request, db)
+    
+    # Verify pet belongs to staff's shelter
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == pet_id,
+        models.Pet.shelterID == staff.shelterID
+    ).first()
+    
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet not found in your shelter"
+        )
+    
+    pet_vaccines = db.query(models.PetVaccine).filter(
+        models.PetVaccine.petID == pet_id
+    ).all()
+    
+    return pet_vaccines
+
+@router.post("/pets/{pet_id}/vaccines", response_model=PetVaccineOut)
+def add_pet_vaccine(pet_id: int, vaccine_data: dict, request: Request, db: Session = Depends(get_db)):
+    """Add a vaccine to a pet"""
+    staff = get_current_staff(request, db)
+    
+    # Verify pet belongs to staff's shelter
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == pet_id,
+        models.Pet.shelterID == staff.shelterID
+    ).first()
+    
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet not found in your shelter"
+        )
+    
+    # Verify vaccine exists
+    vaccine = db.query(models.Vaccine).filter(
+        models.Vaccine.vaccineID == vaccine_data["vaccineID"]
+    ).first()
+    
+    if not vaccine:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vaccine not found"
+        )
+    
+    # Check if pet already has this vaccine
+    existing = db.query(models.PetVaccine).filter(
+        models.PetVaccine.petID == pet_id,
+        models.PetVaccine.vaccineID == vaccine_data["vaccineID"]
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pet already has this vaccine"
+        )
+    
+    pet_vaccine = models.PetVaccine(
+        petID=pet_id,
+        vaccineID=vaccine_data["vaccineID"],
+        dateAdministered=datetime.utcnow()
+    )
+    
+    db.add(pet_vaccine)
+    db.commit()
+    db.refresh(pet_vaccine)
+    
+    return pet_vaccine
+
+@router.delete("/pets/{pet_id}/vaccines/{pet_vaccine_id}")
+def delete_pet_vaccine(pet_id: int, pet_vaccine_id: int, request: Request, db: Session = Depends(get_db)):
+    """Remove a vaccine from a pet"""
+    staff = get_current_staff(request, db)
+    
+    # Verify pet belongs to staff's shelter
+    pet = db.query(models.Pet).filter(
+        models.Pet.petID == pet_id,
+        models.Pet.shelterID == staff.shelterID
+    ).first()
+    
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet not found in your shelter"
+        )
+    
+    pet_vaccine = db.query(models.PetVaccine).filter(
+        models.PetVaccine.petVaccineID == pet_vaccine_id,
+        models.PetVaccine.petID == pet_id
+    ).first()
+    
+    if not pet_vaccine:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet vaccine not found"
+        )
+    
+    db.delete(pet_vaccine)
+    db.commit()
+    
     return None

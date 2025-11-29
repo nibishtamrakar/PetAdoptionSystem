@@ -7,6 +7,7 @@ from . import models
 from app.routers import users
 from app.routers import pets
 from app.routers import staff
+from app.routers import admin
 
 Base.metadata.create_all(bind=engine)
 
@@ -47,3 +48,4 @@ def root():
 app.include_router(users.router)
 app.include_router(pets.router)
 app.include_router(staff.router)
+app.include_router(admin.router)

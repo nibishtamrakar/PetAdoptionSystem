@@ -38,6 +38,12 @@ const StaffProfile = () => {
           <Link to="/staff/dashboard" className="text-white font-semibold hover:text-blue-100">
             Home
           </Link>
+          <Link to="/staff/dashboard?tab=history" className="text-white font-semibold hover:text-blue-100">
+            History
+          </Link>
+          <Link to="/staff/dashboard?tab=requests" className="text-white font-semibold hover:text-blue-100">
+            Requests
+          </Link>
           <Link to="/staff/profile" className="text-white font-semibold hover:text-blue-100">
             Profile
           </Link>

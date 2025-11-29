@@ -185,3 +185,19 @@ class LoginOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+# ---------- SHELTER ----------
+class ShelterCreate(BaseModel):
+    name: str
+    address: str
+    phone: Optional[str] = None
+
+class ShelterOut(BaseModel):
+    shelterID: int
+    name: str
+    address: str
+    phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+

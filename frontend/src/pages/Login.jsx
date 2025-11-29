@@ -37,25 +37,14 @@ const Login = () => {
         return;
       }
 
-      // Handle both shapes:
-      //  - { user: {...}, access_token: "..." }
-      //  - or just { ...userFields }
-      const user = data.user ?? data;
-      const token = data.access_token ?? data.token;
-
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
-      }
-      if (token) {
-        localStorage.setItem("token", token);
-      }
-
-      // Redirect based on role
-      const role = user?.role;
-      if (role === "STAFF" || role === "ADMIN") {
-        navigate("/staffdashboard", { replace: true });
+      localStorage.setItem("user", JSON.stringify(data));
+      localStorage.setItem("token", data.access_token);
+      if (data.role === 'ADMIN') {
+        navigate("/admin/dashboard");
+      } else if (data.role === 'STAFF') {
+        navigate("/staff/dashboard");
       } else {
-        navigate("/browsepets", { replace: true });
+        navigate("/browsepets");
       }
     } catch (err) {
       console.error("Login error:", err);

@@ -18,7 +18,7 @@ const OldPetDetail = () => {
 
   const fetchPetDetail = useCallback(async () => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}`);
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}`);
       const data = await res.json();
       setPet(data);
       setEditedPet(data);
@@ -45,9 +45,14 @@ const OldPetDetail = () => {
         "Content-Type": "application/json" 
       } : { "Content-Type": "application/json" };
 
-      const res = await fetch("http://127.0.0.1:8000/api/vaccines", { headers });
+      const res = await fetch(`${API_BASE_URL}/api/vaccines`, { headers });
+      if (!res.ok) {
+        console.error("Failed to fetch vaccines:", res.status);
+        setVaccines([]); // Set empty array on error
+        return;
+      }
       const data = await res.json();
-      setVaccines(data);
+      setVaccines(Array.isArray(data) ? data : []); // Ensure it's an array
     } catch (err) {
       console.error("Failed to load vaccines:", err);
       setVaccines([]); // Set empty array on error
@@ -62,9 +67,14 @@ const OldPetDetail = () => {
         "Content-Type": "application/json" 
       } : { "Content-Type": "application/json" };
 
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}/vaccines`, { headers });
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}/vaccines`, { headers });
+      if (!res.ok) {
+        console.error("Failed to fetch pet vaccines:", res.status);
+        setPetVaccines([]); // Set empty array on error
+        return;
+      }
       const data = await res.json();
-      setPetVaccines(data);
+      setPetVaccines(Array.isArray(data) ? data : []); // Ensure it's an array
     } catch (err) {
       console.error("Failed to load pet vaccines:", err);
     }
@@ -84,7 +94,7 @@ const OldPetDetail = () => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -118,7 +128,7 @@ const OldPetDetail = () => {
     
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}/vaccines`, {
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}/vaccines`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -145,7 +155,7 @@ const OldPetDetail = () => {
   const handleRemoveVaccine = async (vaccineID, vaccineDate) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}/vaccines`, {
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}/vaccines`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,

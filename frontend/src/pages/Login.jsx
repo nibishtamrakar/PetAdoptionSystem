@@ -8,7 +8,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);   // 👈 NEW
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (loading) return; // prevent double-clicks
@@ -20,14 +20,13 @@ const Login = () => {
     }
 
     try {
-      setLoading(true);  // 👈 start loading
+      setLoading(true);
 
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // credentials: "include", // only if you're using cookies
         body: JSON.stringify({ email, password }),
       });
 
@@ -38,13 +37,31 @@ const Login = () => {
         return;
       }
 
-      localStorage.setItem("user", JSON.stringify(data));
-      navigate("/browsepets", { replace: true });
+      // Handle both shapes:
+      //  - { user: {...}, access_token: "..." }
+      //  - or just { ...userFields }
+      const user = data.user ?? data;
+      const token = data.access_token ?? data.token;
+
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+      }
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+
+      // Redirect based on role
+      const role = user?.role;
+      if (role === "STAFF" || role === "ADMIN") {
+        navigate("/staffdashboard", { replace: true });
+      } else {
+        navigate("/browsepets", { replace: true });
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");
     } finally {
-      setLoading(false); // 👈 stop loading
+      setLoading(false);
     }
   };
 
@@ -85,9 +102,9 @@ const Login = () => {
             loading ? "opacity-60 cursor-not-allowed" : ""
           }`}
           onClick={handleLogin}
-          disabled={loading}  
+          disabled={loading}
         >
-          {loading ? "Signing in..." : "Sign In"}  
+          {loading ? "Signing in..." : "Sign In"}
         </button>
       </div>
     </div>

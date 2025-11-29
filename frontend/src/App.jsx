@@ -21,7 +21,7 @@ function App() {
         <Route path="/browsepets" element={<BrowsePets />} />
         <Route path="/pet/:id" element={<PetDetail />} />
         <Route
-          path="/staff/dashboard"
+          path="/StaffDashboard"
           element={
             <ProtectedRoute allowedRoles={["STAFF", "ADMIN"]}>
               <StaffDashboard />

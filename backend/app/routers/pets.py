@@ -2,7 +2,7 @@
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -98,6 +98,55 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
     if pet.dob:
         ageYears = round((date.today() - pet.dob).days / 365, 1)
 
+    return PetDetailOut(
+        petID=pet.petID,
+        name=pet.name,
+        species=pet.species,
+        breed=pet.breed,
+        sex=pet.sex,
+        dob=pet.dob,
+        status=pet.status,
+        intakeDate=pet.intakeDate,
+        shelterName=shelter.name,
+        shelterAddress=shelter.address, 
+        ageYears=ageYears,
+    )
+
+@router.put("/pets/{pet_id}", response_model=PetDetailOut)
+def update_pet(pet_id: int, pet_data: dict, db: Session = Depends(get_db)):
+    """Update a pet's details"""
+    pet = db.query(models.Pet).filter(models.Pet.petID == pet_id).first()
+    
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    
+    # Convert sex values
+    if "sex" in pet_data:
+        if pet_data["sex"] in ["Male", "M"]:
+            pet_data["sex"] = "M"
+        elif pet_data["sex"] in ["Female", "F"]:
+            pet_data["sex"] = "F"
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid sex value. Must be 'Male', 'Female', 'M', or 'F'"
+            )
+    
+    # Update pet fields
+    for field, value in pet_data.items():
+        if hasattr(pet, field) and field != "petID":
+            setattr(pet, field, value)
+    
+    db.commit()
+    db.refresh(pet)
+    
+    # Get shelter info for response
+    shelter = db.query(models.Shelter).filter(models.Shelter.shelterID == pet.shelterID).first()
+    
+    ageYears = None
+    if pet.dob:
+        ageYears = round((date.today() - pet.dob).days / 365, 1)
+    
     return PetDetailOut(
         petID=pet.petID,
         name=pet.name,

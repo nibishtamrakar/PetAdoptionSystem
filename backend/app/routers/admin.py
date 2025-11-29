@@ -62,6 +62,28 @@ def get_shelter(shelter_id: int, request: Request, db: Session = Depends(get_db)
         )
     return shelter
 
+@router.put("/admin/shelters/{shelter_id}", response_model=ShelterOut)
+def update_shelter(shelter_id: int, shelter_data: dict, request: Request, db: Session = Depends(get_db)):
+    """Update a shelter's details"""
+    admin = get_current_admin(request, db)
+    
+    shelter = db.query(models.Shelter).filter(models.Shelter.shelterID == shelter_id).first()
+    if not shelter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Shelter not found"
+        )
+    
+    # Update shelter fields
+    for field, value in shelter_data.items():
+        if hasattr(shelter, field) and field != "shelterID":
+            setattr(shelter, field, value)
+    
+    db.commit()
+    db.refresh(shelter)
+    
+    return shelter
+
 @router.get("/admin/shelters/{shelter_id}/pets")
 def get_shelter_pets(shelter_id: int, request: Request, db: Session = Depends(get_db)):
     """Get all pets for a specific shelter"""
@@ -142,6 +164,16 @@ def create_pet(pet_data: dict, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Shelter not found"
+        )
+    
+    if pet_data["sex"] in ["Male", "M"]:
+        pet_data["sex"] = "M"
+    elif pet_data["sex"] in ["Female", "F"]:
+        pet_data["sex"] = "F"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid sex value. Must be 'Male', 'Female', 'M', or 'F'"
         )
     
     db_pet = models.Pet(
@@ -317,16 +349,46 @@ def get_upcoming_appointments(request: Request, db: Session = Depends(get_db)):
     
     return appointments
 
-@router.get("/admin/past-appointments", response_model=List[AppointmentOut])
+@router.get("/admin/past-appointments")
 def get_past_appointments(request: Request, db: Session = Depends(get_db)):
     """Get past appointments across all shelters"""
     admin = get_current_admin(request, db)
     
-    appointments = db.query(models.Appointment).join(models.Pet).join(models.Shelter).filter(
+    appointments = db.query(
+        models.Appointment,
+        models.Pet.name.label("petName"),
+        models.UserAccount.name.label("adopterName"),
+        models.Shelter.name.label("shelterName")
+    ).join(
+        models.Pet,
+        models.Appointment.petID == models.Pet.petID
+    ).join(
+        models.UserAccount,
+        models.Appointment.adopterID == models.UserAccount.userID
+    ).join(
+        models.Shelter,
+        models.Appointment.shelterID == models.Shelter.shelterID
+    ).filter(
         models.Appointment.appointmentTime <= datetime.utcnow()
     ).order_by(models.Appointment.appointmentTime.desc()).all()
     
-    return appointments
+    # Format the response to match AppointmentOut schema with additional fields
+    result = []
+    for apt, petName, adopterName, shelterName in appointments:
+        appointment_dict = {
+            "appointmentID": apt.appointmentID,
+            "petID": apt.petID,
+            "adopterID": apt.adopterID,
+            "shelterID": apt.shelterID,
+            "appointmentTime": apt.appointmentTime,
+            "appointmentType": apt.appointmentType,
+            "petName": petName,
+            "adopterName": adopterName,
+            "shelterName": shelterName
+        }
+        result.append(appointment_dict)
+    
+    return result
 
 # Care log endpoints (all care logs across all shelters)
 @router.get("/admin/recent-care-logs", response_model=List[CareLogOut])
@@ -383,9 +445,7 @@ def create_vaccine(vaccine: dict, request: Request, db: Session = Depends(get_db
     admin = get_current_admin(request, db)
     
     db_vaccine = models.Vaccine(
-        name=vaccine["name"],
-        description=vaccine.get("description", ""),
-        duration=vaccine.get("duration", "")
+        name=vaccine["name"]
     )
     
     db.add(db_vaccine)

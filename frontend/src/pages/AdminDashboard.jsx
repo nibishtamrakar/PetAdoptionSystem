@@ -27,6 +27,7 @@ const AdminDashboard = () => {
   // Form states
   const [showAddShelter, setShowAddShelter] = useState(false);
   const [showAddPet, setShowAddPet] = useState(false);
+  const [editingShelter, setEditingShelter] = useState(null);
   const [newShelter, setNewShelter] = useState({
     name: "",
     address: "",
@@ -265,6 +266,87 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error("Error deleting shelter:", err);
       setError("Failed to delete shelter");
+    }
+  };
+
+  const handleAcceptAdoption = async (adoptionId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/accept`, {
+        method: "PUT",
+        headers
+      });
+
+      if (res.ok) {
+        setAdoptionRequests(adoptionRequests.map(req => 
+          req.adoptionID === adoptionId 
+            ? { ...req, status: "APPROVED", approvalDate: new Date().toISOString() }
+            : req
+        ));
+      }
+    } catch (err) {
+      console.error("Error accepting adoption request:", err);
+      setError("Network error");
+    }
+  };
+
+  const handleRejectAdoption = async (adoptionId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/reject`, {
+        method: "PUT",
+        headers
+      });
+
+      if (res.ok) {
+        setAdoptionRequests(adoptionRequests.map(req => 
+          req.adoptionID === adoptionId 
+            ? { ...req, status: "REJECTED" }
+            : req
+        ));
+      }
+    } catch (err) {
+      console.error("Error rejecting adoption request:", err);
+      setError("Network error");
+    }
+  };
+
+  const handleEditShelter = (shelter) => {
+    setEditingShelter({...shelter});
+  };
+
+  const handleUpdateShelter = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/shelters/${editingShelter.shelterID}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(editingShelter)
+      });
+
+      if (res.ok) {
+        const updatedShelter = await res.json();
+        setShelters(shelters.map(s => s.shelterID === updatedShelter.shelterID ? updatedShelter : s));
+        setEditingShelter(null);
+      }
+    } catch (err) {
+      console.error("Error updating shelter:", err);
+      setError("Failed to update shelter");
     }
   };
 
@@ -541,32 +623,74 @@ const AdminDashboard = () => {
                   <tbody>
                     {shelters.map((shelter) => (
                       <tr key={shelter.shelterID} className="hover:bg-gray-50">
-                        <td className="p-3 border-b font-medium">
-                          <button
-                            onClick={() => navigate(`/admin/shelter/${shelter.shelterID}`)}
-                            className="text-blue-600 font-medium hover:underline"
-                          >
-                            {shelter.name}
-                          </button>
-                        </td>
-                        <td className="p-3 border-b text-gray-600">{shelter.address}</td>
-                        <td className="p-3 border-b text-gray-600">{shelter.phone}</td>
-                        <td className="p-3 border-b">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => navigate(`/admin/shelter/${shelter.shelterID}`)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteShelter(shelter.shelterID)}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
+                        {editingShelter && editingShelter.shelterID === shelter.shelterID ? (
+                          <>
+                            <td className="p-3 border-b">
+                              <input
+                                type="text"
+                                value={editingShelter.name}
+                                onChange={(e) => setEditingShelter({...editingShelter, name: e.target.value})}
+                                className="w-full p-1 border rounded"
+                              />
+                            </td>
+                            <td className="p-3 border-b">
+                              <input
+                                type="text"
+                                value={editingShelter.address}
+                                onChange={(e) => setEditingShelter({...editingShelter, address: e.target.value})}
+                                className="w-full p-1 border rounded"
+                              />
+                            </td>
+                            <td className="p-3 border-b">
+                              <input
+                                type="text"
+                                value={editingShelter.phone}
+                                onChange={(e) => setEditingShelter({...editingShelter, phone: e.target.value})}
+                                className="w-full p-1 border rounded"
+                              />
+                            </td>
+                            <td className="p-3 border-b">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={handleUpdateShelter}
+                                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingShelter(null)}
+                                  className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="p-3 border-b font-medium">
+                              {shelter.name}
+                            </td>
+                            <td className="p-3 border-b text-gray-600">{shelter.address}</td>
+                            <td className="p-3 border-b text-gray-600">{shelter.phone}</td>
+                            <td className="p-3 border-b">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEditShelter(shelter)}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteShelter(shelter.shelterID)}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -692,7 +816,7 @@ const AdminDashboard = () => {
                         </td>
                         <td className="p-3 border-b text-gray-600">{pet.species}</td>
                         <td className="p-3 border-b text-gray-600">{pet.breed}</td>
-                        <td className="p-3 border-b text-gray-600">{pet.sex}</td>
+                        <td className="p-3 border-b text-gray-600">{pet.sex === 'M' ? 'Male' : pet.sex === 'F' ? 'Female' : pet.sex}</td>
                         <td className="p-3 border-b text-gray-600">{pet.status}</td>
                         <td className="p-3 border-b text-gray-600">{pet.shelterName}</td>
                         <td className="p-3 border-b">
@@ -815,8 +939,6 @@ const AdminDashboard = () => {
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-b font-semibold text-gray-700">Vaccine Name</th>
-                      <th className="text-left p-3 border-b font-semibold text-gray-700">Description</th>
-                      <th className="text-left p-3 border-b font-semibold text-gray-700">Duration</th>
                       <th className="text-left p-3 border-b font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -824,8 +946,6 @@ const AdminDashboard = () => {
                     {vaccines.map((vaccine) => (
                       <tr key={vaccine.vaccineID} className="hover:bg-gray-50">
                         <td className="p-3 border-b font-medium">{vaccine.name}</td>
-                        <td className="p-3 border-b text-gray-600">{vaccine.description}</td>
-                        <td className="p-3 border-b text-gray-600">{vaccine.duration}</td>
                         <td className="p-3 border-b">
                           <div className="flex space-x-2">
                             <button
@@ -1021,8 +1141,9 @@ const AdminDashboard = () => {
               </h2>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Adoption Requests</h2>
+            {/* Pending Adoption Requests */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Pending Adoption Requests</h2>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -1032,10 +1153,13 @@ const AdminDashboard = () => {
                       <th className="text-left p-3 border-b font-semibold text-gray-700">Application Date</th>
                       <th className="text-left p-3 border-b font-semibold text-gray-700">Status</th>
                       <th className="text-left p-3 border-b font-semibold text-gray-700">Shelter</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {adoptionRequests.map((request) => {
+                    {adoptionRequests
+                      .filter(request => request.status === 'APPLIED')
+                      .map((request) => {
                       const pet = pets.find((p) => p.petID === request.petID);
                       const adopter = users.find((u) => u.userID === request.adopterID);
                       return (
@@ -1053,7 +1177,79 @@ const AdminDashboard = () => {
                           </td>
                           <td className="p-3 border-b">
                             <span className={`px-2 py-1 rounded text-sm font-medium ${
-                              request.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
+                              request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                              request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {request.status}
+                            </span>
+                          </td>
+                          <td className="p-3 border-b text-gray-600">{pet?.shelterName}</td>
+                          <td className="p-3 border-b">
+                            <div className="flex space-x-3">
+                              <button
+                                onClick={() => handleAcceptAdoption(request.adoptionID)}
+                                className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleRejectAdoption(request.adoptionID)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Past Adoption Requests */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Past Adoption Requests</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Adopter Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Application Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Approval Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Status</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Shelter</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adoptionRequests
+                      .filter(request => request.status !== 'APPLIED')
+                      .sort((a, b) => new Date(b.approvalDate || b.applicationDate) - new Date(a.approvalDate || a.applicationDate))
+                      .map((request) => {
+                      const pet = pets.find((p) => p.petID === request.petID);
+                      const adopter = users.find((u) => u.userID === request.adopterID);
+                      return (
+                        <tr key={request.adoptionID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <span className="text-blue-600 font-medium">
+                              {pet ? pet.name : 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {adopter ? adopter.name : 'Unknown Adopter'}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(request.applicationDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {request.approvalDate ? new Date(request.approvalDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3 border-b">
+                            <span className={`px-2 py-1 rounded text-sm font-medium ${
+                              request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
                               request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                               'bg-yellow-100 text-yellow-800'
                             }`}>

@@ -38,6 +38,7 @@ const StaffDashboard = () => {
   const [activeTab, setActiveTab] = useState("home"); // home, history, requests
   const [showAddCareLog, setShowAddCareLog] = useState(false);
   const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [showAddPet, setShowAddPet] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [newCareLog, setNewCareLog] = useState({
     petID: "",
@@ -50,6 +51,14 @@ const StaffDashboard = () => {
     shelterID: "",
     appointmentTime: "",
     appointmentType: ""
+  });
+  const [newPet, setNewPet] = useState({
+    name: "",
+    species: "",
+    breed: "",
+    sex: "Male",
+    dob: "",
+    status: "Available"
   });
 
   // Set active tab from URL parameter
@@ -259,6 +268,42 @@ const StaffDashboard = () => {
     }
   };
 
+  const handleAddPet = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/staff-pets`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(newPet)
+      });
+
+      if (!res.ok) {
+        setError("Failed to add pet");
+        return;
+      }
+
+      const data = await res.json();
+      setPets([...pets, data]);
+      setShowAddPet(false);
+      setNewPet({
+        name: "",
+        species: "",
+        breed: "",
+        sex: "Male",
+        dob: "",
+        status: "Available"
+      });
+    } catch (err) {
+      console.error("Error adding pet:", err);
+      setError("Network error");
+    }
+  };
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -425,12 +470,6 @@ const StaffDashboard = () => {
     } catch (err) {
       console.error("Error fetching pets:", err);
     }
-  };
-
-  const getAppointmentsForAdoption = (petId, adopterId) => {
-    return appointments.filter(apt => 
-      apt.petID === petId && apt.adopterID === adopterId
-    );
   };
 
   const handleEditPet = (pet) => {
@@ -770,7 +809,75 @@ const StaffDashboard = () => {
 
             {/* Pets Section */}
             <div className="mb-8 mt-12">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-6">Your Shelter Pets</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800">Your Shelter Pets</h2>
+                <button
+                  onClick={() => setShowAddPet(true)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full font-semibold"
+                >
+                  Add Pet
+                </button>
+              </div>
+
+              {/* Add Pet Form */}
+              {showAddPet && (
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <h3 className="text-lg font-semibold mb-3">Add New Pet</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <input
+                      type="text"
+                      placeholder="Pet Name"
+                      value={newPet.name}
+                      onChange={(e) => setNewPet({...newPet, name: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Species"
+                      value={newPet.species}
+                      onChange={(e) => setNewPet({...newPet, species: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Breed"
+                      value={newPet.breed}
+                      onChange={(e) => setNewPet({...newPet, breed: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                    <select
+                      value={newPet.sex}
+                      onChange={(e) => setNewPet({...newPet, sex: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                    <input
+                      type="date"
+                      placeholder="Date of Birth"
+                      value={newPet.dob}
+                      onChange={(e) => setNewPet({...newPet, dob: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleAddPet}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold"
+                    >
+                      Add Pet
+                    </button>
+                    <button
+                      onClick={() => setShowAddPet(false)}
+                      className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {pets.map((pet) => (
                   <StaffPetCard key={pet.petID} pet={pet} onEdit={handleEditPet} />
@@ -901,12 +1008,13 @@ const StaffDashboard = () => {
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-blue-600 mb-2">{shelterName || 'Shelter'} - Adoption Requests</h1>
               <h2 className="text-xl text-gray-600">
-                Pending adoption requests
+                Manage adoption requests for your shelter
               </h2>
             </div>
             
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Adoption Requests</h2>
+            {/* Pending Adoption Requests */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Pending Adoption Requests</h2>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -919,16 +1027,23 @@ const StaffDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {adoptionRequests.map((request) => {
+                    {adoptionRequests
+                      .filter(request => request.status === 'APPLIED')
+                      .map((request) => {
                       const pet = pets.find((p) => p.petID === request.petID);
                       const adopter = users.find((u) => u.userID === request.adopterID);
-                      const relatedAppointments = getAppointmentsForAdoption(request.petID, request.adopterID);
+                      const relatedAppointments = appointments.filter(
+                        apt => apt.petID === request.petID && apt.adopterID === request.adopterID
+                      );
                       return (
                         <tr key={request.adoptionID} className="hover:bg-gray-50">
                           <td className="p-3 border-b">
-                            <span className="text-blue-600 font-medium">
+                            <button
+                              onClick={() => pet && navigate(`/pet/${pet.petID}`)}
+                              className="text-blue-600 font-medium hover:underline"
+                            >
                               {pet ? pet.name : 'Unknown'}
-                            </span>
+                            </button>
                           </td>
                           <td className="p-3 border-b text-gray-700">
                             {adopter ? adopter.name : 'Unknown Adopter'}
@@ -936,12 +1051,12 @@ const StaffDashboard = () => {
                           <td className="p-3 border-b text-gray-600">
                             {new Date(request.applicationDate).toLocaleDateString()}
                           </td>
-                          <td className="p-3 border-b text-gray-600">
+                          <td className="p-3 border-b">
                             {relatedAppointments.length > 0 ? (
                               <div className="text-sm">
                                 {relatedAppointments.map((apt) => (
-                                  <div key={apt.appointmentID} className="mb-1">
-                                    {apt.appointmentType} - {new Date(apt.appointmentTime).toLocaleDateString()}
+                                  <div key={apt.appointmentID}>
+                                    {new Date(apt.appointmentTime).toLocaleDateString()} - {apt.appointmentType}
                                   </div>
                                 ))}
                               </div>
@@ -970,11 +1085,63 @@ const StaffDashboard = () => {
                     })}
                   </tbody>
                 </table>
-                {adoptionRequests.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No adoption requests found
-                  </div>
-                )}
+              </div>
+            </div>
+
+            {/* Past Adoption Requests */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Past Adoption Requests</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Adopter Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Application Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Approval Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adoptionRequests
+                      .filter(request => request.status !== 'APPLIED')
+                      .sort((a, b) => new Date(b.approvalDate || b.applicationDate) - new Date(a.approvalDate || a.applicationDate))
+                      .map((request) => {
+                      const pet = pets.find((p) => p.petID === request.petID);
+                      const adopter = users.find((u) => u.userID === request.adopterID);
+                      return (
+                        <tr key={request.adoptionID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <button
+                              onClick={() => pet && navigate(`/pet/${pet.petID}`)}
+                              className="text-blue-600 font-medium hover:underline"
+                            >
+                              {pet ? pet.name : 'Unknown'}
+                            </button>
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {adopter ? adopter.name : 'Unknown Adopter'}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(request.applicationDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {request.approvalDate ? new Date(request.approvalDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3 border-b">
+                            <span className={`px-2 py-1 rounded text-sm font-medium ${
+                              request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                              request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {request.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

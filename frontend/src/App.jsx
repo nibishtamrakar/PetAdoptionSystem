@@ -6,11 +6,24 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import BrowsePets from './pages/BrowsePets'
 import PetDetail from './pages/PetDetail'
+import OldPetDetail from './pages/OldPetDetail'
 import StaffDashboard from './pages/StaffDashboard'
 import StaffProfile from './pages/StaffProfile'
 import AdminDashboard from './pages/AdminDashboard'
 import ShelterDetail from './pages/ShelterDetail'
 import ProtectedRoute from './components/ProtectedRoute';
+
+const PetRouteWrapper = () => {
+  const userData = localStorage.getItem("user");
+  const user = userData ? JSON.parse(userData) : null;
+  const userRole = user?.role;
+  
+  if (userRole === "STAFF" || userRole === "ADMIN") {
+    return <OldPetDetail />;
+  } else {
+    return <PetDetail />;
+  }
+};
 
 function App() {
   return (
@@ -21,9 +34,12 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/browsepets" element={<BrowsePets />} />
-        <Route path="/pet/:id" element={<PetDetail />} />
+        <Route 
+          path="/pet/:id" 
+          element={<PetRouteWrapper />}
+        />
         <Route
-          path="/StaffDashboard"
+          path="/staff/dashboard"
           element={
             <ProtectedRoute allowedRoles={["STAFF", "ADMIN"]}>
               <StaffDashboard />

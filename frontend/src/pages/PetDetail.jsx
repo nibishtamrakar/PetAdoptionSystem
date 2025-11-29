@@ -9,17 +9,31 @@ const PetDetail = () => {
   const navigate = useNavigate();
 
   const [pet, setPet] = useState(null);
-  const [vaccines, setVaccines] = useState([]);
   const [petVaccines, setPetVaccines] = useState([]);
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const fetchPetDetail = async () => {
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    navigate("/login", { replace: true });
+  };
+
+  // ---- Fetch pet detail ----
+  const fetchPetDetail = useCallback(async () => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}`);
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}`);
+
+      if (!res.ok) {
+        setError("Failed to load pet");
+        return;
+      }
+
       const data = await res.json();
       setPet(data);
-      setEditedPet(data);
     } catch (err) {
       console.error("Failed to load pet:", err);
       setError("Network error");
@@ -28,31 +42,29 @@ const PetDetail = () => {
     }
   }, [id]);
 
-  const fetchVaccines = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const headers = token ? { 
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json" 
-      } : { "Content-Type": "application/json" };
-
-      const res = await fetch(`http://127.0.0.1:8000/api/vaccines`, { headers });
-      const data = await res.json();
-      setVaccines(data);
-    } catch (err) {
-      console.error("Failed to load vaccines:", err);
-    }
-  }, []);
-
+  // ---- Fetch vaccines for this pet ----
   const fetchPetVaccines = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const headers = token ? { 
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json" 
-      } : { "Content-Type": "application/json" };
+      const headers = token
+        ? {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          }
+        : { "Content-Type": "application/json" };
 
-      const res = await fetch(`http://127.0.0.1:8000/api/pets/${id}/vaccines`, { headers });
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}/vaccines`, {
+        headers,
+      });
+
+      if (!res.ok) {
+        console.error(
+          "Failed to load pet vaccines, status:",
+          res.status
+        );
+        return;
+      }
+
       const data = await res.json();
       setPetVaccines(data);
     } catch (err) {
@@ -61,25 +73,238 @@ const PetDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    fetchPetDetail();
-  }, [id]);
+    if (id) {
+      fetchPetDetail();
+      fetchPetVaccines();
+    }
+  }, [id, fetchPetDetail, fetchPetVaccines]);
 
-  if (loading) return <p className="text-center mt-20">Loading...</p>;
-  if (!pet) return <p className="text-center mt-20">Pet not found</p>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#5b8fc0] text-white flex flex-col">
+        <Navbar>
+          <div className="w-full flex justify-between items-center">
+            <Link
+              to="/browsepets"
+              className="text-2xl font-bold text-white p-6"
+            >
+              Back to Browse
+            </Link>
+            <div className="flex">
+              <Link
+                to="/profile"
+                className="text-2xl font-bold text-white p-6"
+              >
+                Profile
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-2xl font-bold text-white p-6"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </Navbar>
+
+        <div className="pt-20 flex-1 flex items-center justify-center">
+          <p className="text-white text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !pet) {
+    return (
+      <div className="min-h-screen bg-[#5b8fc0] text-white flex flex-col">
+        <Navbar>
+          <div className="w-full flex justify-between items-center">
+            <Link
+              to="/browsepets"
+              className="text-2xl font-bold text-white p-6"
+            >
+              Back to Browse
+            </Link>
+            <div className="flex">
+              <Link
+                to="/profile"
+                className="text-2xl font-bold text-white p-6"
+              >
+                Profile
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-2xl font-bold text-white p-6"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </Navbar>
+
+        <div className="pt-20 flex-1 flex items-center justify-center">
+          <p className="text-white text-lg">
+            {error || "Pet not found"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- computed fields ----------
+
+  // age: if backend gives ageYears, use it; otherwise compute from dob
+  let age;
+  if (pet.ageYears != null) {
+    age = `${pet.ageYears} yrs`;
+  } else if (pet.dob) {
+    const years =
+      (Date.now() - new Date(pet.dob).getTime()) /
+      (1000 * 60 * 60 * 24 * 365);
+    age = `${years.toFixed(1)} yrs`;
+  } else {
+    age = "N/A";
+  }
+
+  const daysInCare = pet.intakeDate
+    ? Math.max(
+        0,
+        Math.floor(
+          (Date.now() - new Date(pet.intakeDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
+    : null;
+
+  const location = pet.shelterAddress || pet.shelterName || "N/A";
+  const weight = pet.weight || "N/A"; // placeholder if you add weight later
+
+  const summary =
+    pet.summary ||
+    `Meet ${pet.name}! ${pet.name} is a ${
+      pet.species?.toLowerCase() || "lovely pet"
+    } currently cared for at ${pet.shelterName || "our shelter"}.`;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-10">
+    <div className="min-h-screen bg-[#5b8fc0] text-white flex flex-col">
+      {/* NAVBAR */}
+      <Navbar>
+        <div className="w-full flex justify-between items-center">
+          {/* LEFT: Back */}
+          <Link
+            to="/browsepets"
+            className="text-2xl font-bold text-white p-6"
+          >
+            Back to Browse
+          </Link>
 
-      <div className="max-w-xl mx-auto bg-white shadow-md rounded-lg p-6 mt-6">
-        <h1 className="text-3xl font-bold mb-4">{pet.name}</h1>
+          {/* RIGHT: Profile + Logout */}
+          <div className="flex">
+            <Link
+              to="/profile"
+              className="text-2xl font-bold text-white p-6"
+            >
+              Profile
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-2xl font-bold text-white p-6"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </Navbar>
 
-        <div className="w-32 h-32 rounded-full bg-blue-100 mx-auto mb-6"></div>
+      {/* push content below fixed nav */}
+      <div className="pt-20">
+        {/* Main content */}
+        <div className="flex-1 flex flex-col items-center pt-10 px-4">
+          {/* Avatar */}
+          <div className="w-40 h-40 rounded-full bg-[#8ab4e0] flex items-center justify-center shadow-lg">
+            <span className="text-6xl">🐾</span>
+          </div>
 
-        <p><strong>Species:</strong> {pet.species}</p>
-        <p><strong>Breed:</strong> {pet.breed}</p>
-        <p><strong>Sex:</strong> {pet.sex}</p>
-        <p><strong>Status:</strong> {pet.status}</p>
-        <p><strong>Shelter:</strong> {pet.shelterName}</p>
+          {/* Divider */}
+          <div className="w-full max-w-3xl mt-8 mb-4">
+            <hr className="border-t border-white/60" />
+          </div>
+
+          {/* Name */}
+          <h1 className="text-3xl md:text-4xl font-bold mb-6 text-center">
+            {pet.name}
+          </h1>
+
+          {/* Info row: id, species, age, location, sex, weight, days in care */}
+          <div className="w-full max-w-4xl text-center text-sm md:text-base">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-y-2 mb-2 font-semibold">
+              <span>id</span>
+              <span>species</span>
+              <span>age</span>
+              <span>location</span>
+              <span>sex</span>
+              <span>weight</span>
+              <span>days in care</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-y-1 text-sm md:text-base">
+              <span>{pet.petID}</span>
+              <span>{pet.species || "N/A"}</span>
+              <span>{age}</span>
+              <span className="whitespace-normal break-words" title={location}>
+                {location}
+              </span>
+              <span>{pet.sex || "N/A"}</span>
+              <span>{weight}</span>
+              <span>{daysInCare != null ? daysInCare : "N/A"}</span>
+            </div>
+          </div>
+
+          {/* Pet summary */}
+          <div className="w-full max-w-2xl mt-8 text-center">
+            <h2 className="text-xl font-semibold mb-2">Pet Summary</h2>
+            <p className="text-sm md:text-base leading-relaxed whitespace-pre-line">
+              {summary}
+            </p>
+          </div>
+
+          {/* Vaccination history */}
+          {petVaccines.length > 0 && (
+            <div className="w-full max-w-2xl mt-8 text-center">
+              <h2 className="text-xl font-semibold mb-2">
+                Vaccination History
+              </h2>
+              <ul className="text-sm md:text-base leading-relaxed space-y-1">
+                {petVaccines.map((v) => (
+                  <li
+                    key={`${v.petID}-${v.vaccineID}-${v.vaccineDate}`}
+                  >
+                    {v.vaccineName || v.name} — {v.vaccineDate}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="mt-10 flex gap-8 flex-wrap justify-center mb-10">
+            <button
+              className="px-10 py-3 rounded-full bg-[#a9c9f5] text-[#234971] font-semibold shadow-md hover:bg-[#c1d9fa] transition"
+              onClick={() => {
+                console.log("Adopt Me clicked");
+              }}
+            >
+              Adopt Me
+            </button>
+            <button
+              className="px-10 py-3 rounded-full bg-[#a9c9f5] text-[#234971] font-semibold shadow-md hover:bg-[#c1d9fa] transition"
+              onClick={() => {
+                console.log("Meet Me clicked");
+              }}
+            >
+              Meet Me
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

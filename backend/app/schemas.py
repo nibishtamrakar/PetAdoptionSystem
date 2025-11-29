@@ -30,6 +30,7 @@ class PetDetailOut(BaseModel):
     dob: Optional[date]
     status: str
     intakeDate: date
+    shelterID: int
     shelterName: str
     shelterAddress: str     
     ageYears: Optional[float]
@@ -42,7 +43,7 @@ class PetDetailOut(BaseModel):
 
 class AdoptionCreate(BaseModel):
     petID: int
-    adopterID: int
+    # adopterID: int // adopterID from Logged-In user
 
 
 class AdoptionOut(BaseModel):
@@ -62,7 +63,7 @@ class AdoptionOut(BaseModel):
 
 class ScheduleAppointmentIn(BaseModel):
     petID: int
-    # adopterID: int    // adopterID from Logged In user
+    # adopterID: int    // adopterID from Logged-In user
     shelterID: int
     appointmentTime: datetime
     appointmentType: str

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { API_BASE_URL } from "../config";
 
-const AppointmentModal = ({ open, onClose }) => {
+const AppointmentModal = ({ open, onClose, pet }) => {
   // Read currently logged-in user from localStorage
   const storedUser = typeof window !== "undefined"
     ? localStorage.getItem("user")
@@ -41,8 +41,8 @@ const AppointmentModal = ({ open, onClose }) => {
       const token = localStorage.getItem("token");
 
       const payload = {
-        petID: Number(form.petID),
-        shelterID: Number(form.shelterID),
+        petID: Number(pet.petID),
+        shelterID: Number(pet.shelterID),
         appointmentTime: form.appointmentTime,
         appointmentType: form.appointmentType,
       };
@@ -106,10 +106,10 @@ const AppointmentModal = ({ open, onClose }) => {
           &times;
         </button>
 
-        <h2 className="text-xl font-semibold mb-4">Schedule Appointment</h2>
+        <h2 className="text-xl font-semibold mb-4">Schedule Appointment for {pet.name}</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-          <div>
+          {/* <div>
             <label
               className="block text-sm font-medium mb-1"
               htmlFor="petID"
@@ -126,9 +126,9 @@ const AppointmentModal = ({ open, onClose }) => {
               className="w-full border rounded-md px-3 py-2"
               required
             />
-          </div>
+          </div> */}
 
-          <div>
+          {/* <div>
             <label
               className="block text-sm font-medium mb-1"
               htmlFor="shelterID"
@@ -145,7 +145,7 @@ const AppointmentModal = ({ open, onClose }) => {
               className="w-full border rounded-md px-3 py-2"
               required
             />
-          </div>
+          </div> */}
 
           <div>
             <label

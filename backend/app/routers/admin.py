@@ -277,8 +277,8 @@ def remove_staff_role(user_id: int, request: Request, db: Session = Depends(get_
             detail="User is not a staff member"
         )
     
-    # Update user role back to USER
-    user.role = "USER"
+    # Update user role back to ADOPTER
+    user.role = "ADOPTER"
     
     # Remove staff record
     staff = db.query(models.Staff).filter(models.Staff.userID == user_id).first()

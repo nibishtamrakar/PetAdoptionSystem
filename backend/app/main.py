@@ -3,6 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import Base, engine, SessionLocal
 from . import models
+from app.routers import appointments
+from app.routers import adoptions
+
+
+
+
 
 from app.routers import users
 from app.routers import pets
@@ -49,3 +55,5 @@ app.include_router(users.router)
 app.include_router(pets.router)
 app.include_router(staff.router)
 app.include_router(admin.router)
+app.include_router(appointments.router)
+app.include_router(adoptions.router)

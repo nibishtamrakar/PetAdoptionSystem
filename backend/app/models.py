@@ -4,6 +4,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
+import datetime
 
 
 # 1. ---------- USERACCOUNT ----------
@@ -135,9 +136,12 @@ class Adoption(Base):
 
 
 # 8. ---------- APPOINTMENT ----------
+from sqlalchemy import func
+from datetime import datetime
+
 class Appointment(Base):
     __tablename__ = "Appointment"
-
+    
     appointmentID = Column(Integer, primary_key=True, autoincrement=True)
     petID = Column(Integer, ForeignKey("Pet.petID"), nullable=False)
     adopterID = Column(Integer, ForeignKey("UserAccount.userID"), nullable=False)
@@ -146,10 +150,28 @@ class Appointment(Base):
     appointmentType = Column(
         Enum("VISIT", "MEET&GREET", "VET", name="appt_type"), nullable=False
     )
-
+    
+    # NEW FIELDS:
+    status = Column(
+        Enum("PENDING", "PENDING_EDIT", "UPCOMING", "COMPLETED", "REJECTED", name="appointment_status"),
+        nullable=False,
+        default="PENDING",
+        server_default="PENDING"
+    )
+    requestedAt = Column(DateTime, nullable=False, default=datetime.utcnow, server_default=func.now())
+    updatedAt = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    notes = Column(Text, nullable=True)
+    
     pet = relationship("Pet", back_populates="appointments")
     adopter = relationship("UserAccount", back_populates="appointments")
     shelter = relationship("Shelter", back_populates="appointments")
+    
+    __table_args__ = (
+        Index("ix_appointment_status", "status"),
+        Index("ix_appointment_shelterID", "shelterID"),
+        Index("ix_appointment_adopterID", "adopterID"),
+    )
+
 
 
 # 9. ---------- CARELOG ----------

@@ -4,3 +4,4 @@ backend/ca.pem
 venv/
 backend/app/__pycache__/*
 backend/app/routers/__pycache__/*
+.env

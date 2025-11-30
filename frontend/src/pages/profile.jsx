@@ -15,7 +15,17 @@ const Profile = () => {
   const [editingAppointmentId, setEditingAppointmentId] = useState(null);
   const [editingAppointmentData, setEditingAppointmentData] = useState({});
   const [showNewApplicationModal, setShowNewApplicationModal] = useState(false);
-  const [showNewAppointmentModal, setShowNewAppointmentModal] = useState(false);
+  const [pets, setPets] = useState([]);
+
+  // Adoption form with appointment fields
+  const [newAdoptionForm, setNewAdoptionForm] = useState({
+    petID: "",
+    appointmentTime: "",
+    appointmentType: "VISIT",
+    appointmentNotes: "",
+  });
+
+  const [selectedAdoptionPet, setSelectedAdoptionPet] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -24,6 +34,12 @@ const Profile = () => {
   const [updateError, setUpdateError] = useState(null);
   const [updateSuccess, setUpdateSuccess] = useState(null);
 
+  const token = localStorage.getItem("token");
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
   // ========== FETCH PROFILE DATA ==========
   const fetchProfileData = async (userData) => {
     if (!userData) return;
@@ -31,12 +47,21 @@ const Profile = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch user profile
+      // Profile
       const profileRes = await fetch(
         `${API_BASE_URL}/api/users/${userData.userID}`,
-        { credentials: "include" }
+        {
+          credentials: "include",
+          headers,
+        }
       );
-      if (!profileRes.ok) throw new Error("Failed to load profile");
+      if (!profileRes.ok) {
+        const err = await profileRes.json().catch(() => null);
+        console.error("Profile error payload:", err);
+        throw new Error(
+          err?.detail || `Failed to load profile (${profileRes.status})`
+        );
+      }
       const profileData = await profileRes.json();
       setUser(profileData);
       setFormData({
@@ -45,75 +70,255 @@ const Profile = () => {
         phone: profileData.phone || "",
       });
 
-      // Fetch adoptions
+      // Adoptions
       const adoptionsRes = await fetch(
         `${API_BASE_URL}/api/users/${userData.userID}/adoptions`,
-        { credentials: "include" }
+        { credentials: "include", headers }
       );
-      if (!adoptionsRes.ok) throw new Error("Failed to load adoptions");
+      if (!adoptionsRes.ok) {
+        const err = await adoptionsRes.json().catch(() => null);
+        console.error("Adoptions error payload:", err);
+        throw new Error(
+          err?.detail || `Failed to load adoptions (${adoptionsRes.status})`
+        );
+      }
       const adoptionsData = await adoptionsRes.json();
       setAdoptions(adoptionsData || []);
 
-      // Fetch appointments
+      // Appointments
       const appointmentsRes = await fetch(
         `${API_BASE_URL}/api/users/${userData.userID}/appointments`,
-        { credentials: "include" }
+        { credentials: "include", headers }
       );
-      if (!appointmentsRes.ok) throw new Error("Failed to load appointments");
+      if (!appointmentsRes.ok) {
+        const err = await appointmentsRes.json().catch(() => null);
+        console.error("Appointments error payload:", err);
+        throw new Error(
+          err?.detail ||
+            `Failed to load appointments (${appointmentsRes.status})`
+        );
+      }
       const appointmentsData = await appointmentsRes.json();
       setAppointments(appointmentsData || []);
     } catch (err) {
       console.error("Error fetching profile data:", err);
-      setError("Failed to load profile data");
+      setError(err.message || "Failed to load profile data");
     } finally {
       setLoading(false);
     }
   };
 
-  // ========== AUTH GUARD + INITIAL LOAD ==========
-  useEffect(() => {
-    const raw = localStorage.getItem("user");
-    if (!raw) {
-      navigate("/login", { replace: true });
-      return;
-    }
+  // ========== FETCH PETS ==========
+  const fetchPetsAndShelters = async () => {
     try {
-      const parsed = JSON.parse(raw);
-      setUser(parsed);
-      // Call fetch with parsed user
-      fetchProfileData(parsed);
-    } catch {
-      localStorage.removeItem("user");
-      navigate("/login", { replace: true });
-    }
-  }, [navigate]);
-
-  // ========== AUTO-RELOAD DATA WHEN RETURNING TO PAGE ==========
-  useEffect(() => {
-    const handleFocus = () => {
-      console.log("Page regained focus - refreshing data");
-      const raw = localStorage.getItem("user");
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          fetchProfileData(parsed);
-        } catch (err) {
-          console.error("Error refreshing data on focus:", err);
-        }
+      const petsRes = await fetch(`${API_BASE_URL}/api/pets`, {
+        credentials: "include",
+        headers,
+      });
+      if (petsRes.ok) {
+        const petsData = await petsRes.json();
+        setPets(petsData || []);
+      } else {
+        const err = await petsRes.json().catch(() => null);
+        console.error("Pets error payload:", err);
       }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, []);
-
-  // ========== HANDLE LOGOUT ==========
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/homepage", { replace: true });
+    } catch (err) {
+      console.error("Error fetching pets:", err);
+    }
   };
 
-  // ========== HANDLE EDIT PROFILE ==========
+  useEffect(() => {
+    if (showNewApplicationModal) {
+      fetchPetsAndShelters();
+    }
+  }, [showNewApplicationModal]);
+
+  // ========== ADOPTION HANDLERS ==========
+  const handleAdoptionPetChange = (e) => {
+    const petID = parseInt(e.target.value);
+    const selectedPet = pets.find((p) => p.petID === petID);
+    setNewAdoptionForm((prev) => ({ ...prev, petID }));
+    setSelectedAdoptionPet(selectedPet || null);
+  };
+
+  const handleRequestAdoptionWithAppointment = async () => {
+    if (!newAdoptionForm.petID) {
+      setUpdateError("Please select a pet");
+      return;
+    }
+
+    if (!newAdoptionForm.appointmentTime) {
+      setUpdateError("Please select appointment date & time");
+      return;
+    }
+
+    try {
+      setUpdateError(null);
+      setUpdateSuccess(null);
+
+      // Step 1: Create Adoption
+      const adoptionRes = await fetch(`${API_BASE_URL}/api/adoptions`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          petID: parseInt(newAdoptionForm.petID),
+        }),
+      });
+
+      if (!adoptionRes.ok) {
+        const errData = await adoptionRes.json().catch(() => null);
+        throw new Error(
+          errData?.detail || "Failed to create adoption request"
+        );
+      }
+
+      // Step 2: Create Appointment
+      const appointmentRes = await fetch(`${API_BASE_URL}/api/appointments`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          petID: parseInt(newAdoptionForm.petID),
+          shelterID: selectedAdoptionPet?.shelterID,
+          appointmentTime: newAdoptionForm.appointmentTime + ":00",
+          appointmentType: newAdoptionForm.appointmentType || "VISIT",
+          notes: newAdoptionForm.appointmentNotes || "",
+        }),
+      });
+
+      if (!appointmentRes.ok) {
+        const errData = await appointmentRes.json().catch(() => null);
+        throw new Error(errData?.detail || "Failed to schedule appointment");
+      }
+
+      setUpdateSuccess(
+        "✓ Adoption submitted!\n✓ Appointment sent for staff approval"
+      );
+      setShowNewApplicationModal(false);
+      setNewAdoptionForm({
+        petID: "",
+        appointmentTime: "",
+        appointmentType: "VISIT",
+        appointmentNotes: "",
+      });
+      setSelectedAdoptionPet(null);
+
+      if (user) {
+        fetchProfileData(user);
+      }
+
+      setTimeout(() => setUpdateSuccess(null), 4000);
+    } catch (err) {
+      console.error("Error:", err);
+      setUpdateError(err.message || "Failed to process request");
+    }
+  };
+
+  const handleDeleteAdoption = async (adoptionID) => {
+    if (!window.confirm("Delete this adoption application?")) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/adoptions/${adoptionID}`,
+        {
+          method: "DELETE",
+          headers,
+          credentials: "include",
+        }
+      );
+      if (!res.ok) throw new Error("Failed to delete adoption");
+
+      setUpdateSuccess("Adoption deleted.");
+      if (user) fetchProfileData(user);
+      setTimeout(() => setUpdateSuccess(null), 3000);
+    } catch (err) {
+      console.error("Error:", err);
+      setUpdateError("Failed to delete adoption");
+    }
+  };
+
+  // ========== APPOINTMENT HANDLERS ==========
+  const handleDeleteAppointment = async (appointmentID) => {
+    if (!window.confirm("Delete this appointment?")) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/appointments/${appointmentID}`,
+        {
+          method: "DELETE",
+          headers,
+          credentials: "include",
+        }
+      );
+      if (!res.ok) throw new Error("Failed to delete appointment");
+
+      setUpdateSuccess("Appointment deleted.");
+      if (user) fetchProfileData(user);
+      setTimeout(() => setUpdateSuccess(null), 3000);
+    } catch (err) {
+      console.error("Error:", err);
+      setUpdateError("Failed to delete appointment");
+    }
+  };
+
+  const handleEditAppointment = (appointment) => {
+    const dt = new Date(appointment.appointmentTime);
+    const dateStr = dt.toISOString().split("T")[0];
+    const timeStr = dt.toTimeString().slice(0, 5);
+    setEditingAppointmentId(appointment.appointmentID);
+    setEditingAppointmentData({
+      appointmentDate: dateStr,
+      appointmentTime: timeStr,
+      notes: appointment.notes || "",
+    });
+  };
+
+  const handleSaveAppointment = async () => {
+    if (!editingAppointmentId || !user) return;
+
+    try {
+      setUpdateError(null);
+      setUpdateSuccess(null);
+
+      const { appointmentDate, appointmentTime, notes } = editingAppointmentData;
+      const isoTime = `${appointmentDate}T${appointmentTime}:00`;
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/appointments/${editingAppointmentId}`,
+        {
+          method: "PUT",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({
+            appointmentTime: isoTime,
+            notes: notes || "",
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || "Failed to update appointment");
+      }
+
+      setEditingAppointmentId(null);
+      setEditingAppointmentData({});
+      setUpdateSuccess("Appointment updated!");
+      fetchProfileData(user);
+      setTimeout(() => setUpdateSuccess(null), 3000);
+    } catch (err) {
+      console.error("Error:", err);
+      setUpdateError(err.message || "Failed to update appointment");
+    }
+  };
+
+  const handleCancelEditAppointment = () => {
+    setEditingAppointmentId(null);
+    setEditingAppointmentData({});
+  };
+
+  // ========== PROFILE EDIT HANDLERS ==========
   const handleEditClick = () => {
     setIsEditing(true);
     setUpdateError(null);
@@ -122,9 +327,6 @@ const Profile = () => {
 
   const handleCancel = () => {
     setIsEditing(false);
-    setUpdateError(null);
-    setUpdateSuccess(null);
-    // Reset form to current user data
     if (user) {
       setFormData({
         name: user.name || "",
@@ -140,14 +342,15 @@ const Profile = () => {
       setUpdateError(null);
       setUpdateSuccess(null);
 
-      const res = await fetch(`${API_BASE_URL}/api/users/${user.userID}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(formData),
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/users/${user.userID}`,
+        {
+          method: "PUT",
+          headers,
+          credentials: "include",
+          body: JSON.stringify(formData),
+        }
+      );
 
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
@@ -157,15 +360,11 @@ const Profile = () => {
       const updatedUser = await res.json();
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
-      setUpdateSuccess("Profile updated successfully!");
+      setUpdateSuccess("Profile updated!");
       setIsEditing(false);
-
-      // Refresh all data after save
-      fetchProfileData(updatedUser);
-
       setTimeout(() => setUpdateSuccess(null), 3000);
     } catch (err) {
-      console.error("Error updating profile:", err);
+      console.error("Error:", err);
       setUpdateError(err.message || "Failed to update profile");
     }
   };
@@ -178,66 +377,47 @@ const Profile = () => {
     }));
   };
 
-  // ========== HANDLE APPOINTMENT EDIT ==========
-  const handleEditAppointment = (appointment) => {
-    setEditingAppointmentId(appointment.appointmentID);
-    setEditingAppointmentData({
-      appointmentTime: appointment.appointmentTime,
-    });
-  };
-
-  const handleSaveAppointment = async () => {
-    if (!editingAppointmentId || !user) return;
-    try {
-      // TODO: Backend endpoint needed - PUT /api/appointments/{appointmentID}
-      // For now, just update UI and show success
-      setEditingAppointmentId(null);
-      
-      // Update appointment in local state
-      setAppointments(prev =>
-        prev.map(apt =>
-          apt.appointmentID === editingAppointmentId
-            ? { ...apt, appointmentTime: editingAppointmentData.appointmentTime }
-            : apt
-        )
-      );
-      
-      setUpdateSuccess("Appointment updated successfully!");
-      
-      // Refresh all data after save
-      setTimeout(() => {
-        fetchProfileData(user);
-        setUpdateSuccess(null);
-      }, 1500);
-    } catch (err) {
-      console.error("Error updating appointment:", err);
-      setUpdateError("Failed to update appointment");
+  // ========== AUTH + INIT ==========
+  useEffect(() => {
+    const raw = localStorage.getItem("user");
+    if (!raw) {
+      navigate("/login", { replace: true });
+      return;
     }
-  };
 
-  const handleCancelEditAppointment = () => {
-    setEditingAppointmentId(null);
-    setEditingAppointmentData({});
-  };
+    try {
+      const parsed = JSON.parse(raw);
+      setUser(parsed);
+      fetchProfileData(parsed);
+    } catch {
+      localStorage.removeItem("user");
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
-  // ========== RENDER ==========
+  useEffect(() => {
+    const handleFocus = () => {
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          fetchProfileData(parsed);
+        } catch (err) {
+          console.error("Error refreshing:", err);
+        }
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
   if (loading) {
     return (
       <>
         <Navbar />
-        <div className="flex justify-center items-center h-screen pt-20">
-          <p className="text-xl">Loading profile...</p>
-        </div>
-      </>
-    );
-  }
-
-  if (error && !user) {
-    return (
-      <>
-        <Navbar />
-        <div className="flex justify-center items-center h-screen pt-20">
-          <p className="text-xl text-red-600">{error}</p>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-xl text-gray-600">Loading...</div>
         </div>
       </>
     );
@@ -246,425 +426,519 @@ const Profile = () => {
   return (
     <>
       <Navbar />
-      <div className="bg-blue-100 min-h-screen flex flex-col pt-20">
-        {/* Content wrapper - scrollable */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Account Info Section */}
-          <div className="mb-6">
-            {updateSuccess && (
-              <div className="mb-4 p-3 bg-green-100 text-green-800 rounded">
-                {updateSuccess}
-              </div>
-            )}
+      <div className="min-h-screen bg-gray-100 py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          {updateError && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-line">
+              {updateError}
+            </div>
+          )}
+          {updateSuccess && (
+            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded whitespace-pre-line">
+              {updateSuccess}
+            </div>
+          )}
+          {error && !updateError && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
 
-            {updateError && (
-              <div className="mb-4 p-3 bg-red-100 text-red-800 rounded">
-                {updateError}
-              </div>
-            )}
-
-            {isEditing ? (
-              // Edit Mode
-              <div className="space-y-3 w-1/2">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
-                <div className="flex gap-3 pt-3">
-                  <button
-                    onClick={handleSave}
-                    className="px-4 py-2 bg-green-500 text-white rounded-full font-semibold text-sm hover:bg-green-600 transition"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="px-4 py-2 bg-gray-400 text-white rounded-full font-semibold text-sm hover:bg-gray-500 transition"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              // View Mode
-              <div className="space-y-1 text-sm">
-                <p>
-                  <strong>Name:</strong> {user?.name}
-                </p>
-                <p>
-                  <strong>Email:</strong> {user?.email}
-                </p>
-                <p>
-                  <strong>Phone:</strong> {user?.phone || "N/A"}
-                </p>
-                <p>
-                  <strong>Role:</strong> {user?.role}
-                </p>
-                {!isEditing && (
-                  <button
-                    onClick={handleEditClick}
-                    className="mt-3 px-5 py-2 bg-blue-400 text-white rounded-full font-semibold text-sm hover:bg-blue-500 transition"
-                  >
-                    Edit
-                  </button>
+          {/* Profile Header */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800 mb-4">
+                  Profile
+                </h1>
+                {!isEditing ? (
+                  <>
+                    <p className="text-gray-600 mb-2">
+                      <strong>Name:</strong> {user?.name}
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <strong>Email:</strong> {user?.email}
+                    </p>
+                    <p className="text-gray-600">
+                      <strong>Phone:</strong> {user?.phone || "N/A"}
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleFormChange}
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleFormChange}
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1">
+                        Phone
+                      </label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleFormChange}
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* Toggle Buttons */}
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setActiveTab("applications")}
-              className={`px-6 py-2 rounded-full font-semibold text-sm transition ${
-                activeTab === "applications"
-                  ? "bg-blue-400 text-white hover:bg-blue-500"
-                  : "bg-gray-300 text-gray-700 hover:bg-gray-400"
-              }`}
-            >
-              Applications
-            </button>
-            <button
-              onClick={() => setActiveTab("appointments")}
-              className={`px-6 py-2 rounded-full font-semibold text-sm transition ${
-                activeTab === "appointments"
-                  ? "bg-blue-400 text-white hover:bg-blue-500"
-                  : "bg-gray-300 text-gray-700 hover:bg-gray-400"
-              }`}
-            >
-              Appointments
-            </button>
-          </div>
-
-          {/* Applications Section */}
-          {activeTab === "applications" && (
-            <div className="bg-white rounded-2xl p-6 shadow-md">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Recent Adoption Applications
-                </h2>
-                <button 
-                  onClick={() => setShowNewApplicationModal(true)}
-                  className="text-blue-400 hover:text-blue-600 text-4xl font-bold leading-none transition h-10 w-10 flex items-center justify-center"
-                  title="Add new application"
-                  aria-label="Add new application"
-                >
-                  +
-                </button>
+              <div>
+                {!isEditing ? (
+                  <button
+                    onClick={handleEditClick}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-semibold"
+                  >
+                    Edit Profile
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSave}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
 
-              {adoptions.length === 0 ? (
-                <p className="text-gray-600 text-sm">
-                  No adoption applications yet. Start browsing pets!
-                </p>
-              ) : (
+          {/* Tabs */}
+          <div className="bg-white rounded-lg shadow-md">
+            <div className="flex border-b">
+              <button
+                onClick={() => setActiveTab("applications")}
+                className={`flex-1 py-4 px-6 font-semibold ${
+                  activeTab === "applications"
+                    ? "bg-blue-100 text-blue-800 border-b-2 border-blue-800"
+                    : "text-gray-600"
+                }`}
+              >
+                Applications
+              </button>
+              <button
+                onClick={() => setActiveTab("appointments")}
+                className={`flex-1 py-4 px-6 font-semibold ${
+                  activeTab === "appointments"
+                    ? "bg-blue-100 text-blue-800 border-b-2 border-blue-800"
+                    : "text-gray-600"
+                }`}
+              >
+                Appointments
+              </button>
+            </div>
+
+            {/* Applications Tab */}
+            {activeTab === "applications" && (
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Adoption Applications</h2>
+                  <button
+                    onClick={() => setShowNewApplicationModal(true)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-semibold"
+                  >
+                    + New Application
+                  </button>
+                </div>
+
+                {/* Modal with Appointment Fields */}
+                {showNewApplicationModal && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-96 overflow-y-auto">
+                      <h3 className="text-2xl font-bold mb-6">
+                        New Adoption Application
+                      </h3>
+
+                      <div className="mb-4">
+                        <label className="block text-gray-700 font-semibold mb-2">
+                          Select Pet
+                        </label>
+                        <select
+                          value={newAdoptionForm.petID}
+                          onChange={handleAdoptionPetChange}
+                          className="w-full border border-gray-300 rounded px-3 py-2"
+                        >
+                          <option value="">-- Choose a pet --</option>
+                          {pets.map((pet) => (
+                            <option key={pet.petID} value={pet.petID}>
+                              {pet.name} ({pet.species})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {selectedAdoptionPet && (
+                        <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+                          <p>
+                            <strong>Name:</strong> {selectedAdoptionPet.name}
+                          </p>
+                          <p>
+                            <strong>Breed:</strong> {selectedAdoptionPet.breed}
+                          </p>
+                          <p>
+                            <strong>Shelter:</strong>{" "}
+                            {selectedAdoptionPet.shelterName}
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedAdoptionPet && (
+                        <>
+                          <h4 className="text-lg font-semibold mb-3 mt-6">
+                            Schedule Appointment
+                          </h4>
+
+                          <div className="mb-4">
+                            <label className="block text-gray-700 font-semibold mb-2">
+                              Preferred Date & Time *
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={newAdoptionForm.appointmentTime || ""}
+                              onChange={(e) =>
+                                setNewAdoptionForm({
+                                  ...newAdoptionForm,
+                                  appointmentTime: e.target.value,
+                                })
+                              }
+                              className="w-full border border-gray-300 rounded px-3 py-2"
+                            />
+                          </div>
+
+                          <div className="mb-4">
+                            <label className="block text-gray-700 font-semibold mb-2">
+                              Type
+                            </label>
+                            <select
+                              value={newAdoptionForm.appointmentType || "VISIT"}
+                              onChange={(e) =>
+                                setNewAdoptionForm({
+                                  ...newAdoptionForm,
+                                  appointmentType: e.target.value,
+                                })
+                              }
+                              className="w-full border border-gray-300 rounded px-3 py-2"
+                            >
+                              <option value="VISIT">Visit</option>
+                              <option value="CONSULTATION">Consultation</option>
+                              <option value="MEET&GREET">
+                                Meet &amp; Greet
+                              </option>
+                            </select>
+                          </div>
+
+                          <div className="mb-6">
+                            <label className="block text-gray-700 font-semibold mb-2">
+                              Notes
+                            </label>
+                            <textarea
+                              value={newAdoptionForm.appointmentNotes || ""}
+                              onChange={(e) =>
+                                setNewAdoptionForm({
+                                  ...newAdoptionForm,
+                                  appointmentNotes: e.target.value,
+                                })
+                              }
+                              placeholder="Any special requests..."
+                              className="w-full border border-gray-300 rounded px-3 py-2"
+                              rows="3"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={handleRequestAdoptionWithAppointment}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold"
+                        >
+                          Submit
+                        </button>
+                        <button
+                          onClick={() => setShowNewApplicationModal(false)}
+                          className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full border-collapse">
                     <thead>
-                      <tr className="border-b-2 border-gray-300">
-                        <th className="text-left py-2 px-3 font-semibold text-gray-700">
+                      <tr className="bg-gray-50">
+                        <th className="text-left p-3 border-b font-semibold">
                           Pet
                         </th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-700">
+                        <th className="text-left p-3 border-b font-semibold">
                           Submitted
                         </th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-700">
+                        <th className="text-left p-3 border-b font-semibold">
                           Status
+                        </th>
+                        <th className="text-left p-3 border-b font-semibold">
+                          Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {adoptions.map((adoption) => (
-                        <tr
-                          key={adoption.adoptionID}
-                          className="border-b border-gray-200 hover:bg-gray-50"
-                        >
-                          <td className="py-2 px-3">
-                            {adoption.petName} ({adoption.petSpecies})
-                          </td>
-                          <td className="py-2 px-3">
-                            {new Date(
-                              adoption.applicationDate
-                            ).toLocaleDateString()}
-                          </td>
-                          <td className="py-2 px-3">
-                            <span
-                              className={`px-3 py-1 rounded-full font-semibold text-xs ${
-                                adoption.status === "APPROVED"
-                                  ? "bg-green-100 text-green-800"
-                                  : adoption.status === "APPLIED"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : adoption.status === "FINALIZED"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {adoption.status}
-                            </span>
+                      {adoptions.length > 0 ? (
+                        adoptions.map((adoption) => (
+                          <tr
+                            key={adoption.adoptionID}
+                            className="hover:bg-gray-50 border-b"
+                          >
+                            <td className="p-3 font-semibold text-blue-600">
+                              {adoption.petName}
+                            </td>
+                            <td className="p-3">
+                              {new Date(
+                                adoption.applicationDate
+                              ).toLocaleDateString()}
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                  adoption.status === "APPLIED"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : adoption.status === "APPROVED"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {adoption.status}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <button
+                                onClick={() =>
+                                  handleDeleteAdoption(adoption.adoptionID)
+                                }
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="4"
+                            className="p-6 text-center text-gray-500"
+                          >
+                            No applications yet
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Appointments Section */}
-          {activeTab === "appointments" && (
-            <div className="bg-white rounded-2xl p-6 shadow-md">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Upcoming Appointments
-                </h2>
-                <button 
-                  onClick={() => setShowNewAppointmentModal(true)}
-                  className="text-blue-400 hover:text-blue-600 text-4xl font-bold leading-none transition h-10 w-10 flex items-center justify-center"
-                  title="Schedule new appointment"
-                  aria-label="Schedule new appointment"
-                >
-                  +
-                </button>
               </div>
+            )}
 
-              {appointments.length === 0 ? (
-                <p className="text-gray-600 text-sm">
-                  No appointments scheduled. Schedule one to meet your future pet!
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {appointments.map((appointment) => (
-                    <div
-                      key={appointment.appointmentID}
-                      className="border border-gray-300 rounded-lg p-3 hover:bg-gray-50 flex justify-between items-start"
-                    >
-                      <div className="flex-1">
-                        {editingAppointmentId === appointment.appointmentID ? (
-                          // Edit Mode
-                          <div className="space-y-2">
-                            <p className="font-semibold text-gray-800 text-sm">
-                              {appointment.petName} ({appointment.petSpecies})
-                            </p>
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                Date & Time
-                              </label>
-                              <input
-                                type="datetime-local"
-                                value={
-                                  editingAppointmentData.appointmentTime
-                                    ? new Date(editingAppointmentData.appointmentTime)
-                                        .toISOString()
-                                        .slice(0, 16)
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  setEditingAppointmentData({
-                                    appointmentTime: new Date(e.target.value),
-                                  })
-                                }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={handleSaveAppointment}
-                                className="px-3 py-1 bg-green-500 text-white rounded text-xs font-semibold hover:bg-green-600"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={handleCancelEditAppointment}
-                                className="px-3 py-1 bg-gray-400 text-white rounded text-xs font-semibold hover:bg-gray-500"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          // View Mode
-                          <>
-                            <p className="font-semibold text-gray-800 text-sm">
-                              {appointment.petName} ({appointment.petSpecies})
-                            </p>
-                            <p className="text-gray-600 text-xs">
-                              <span className="font-semibold">Type:</span>{" "}
-                              {appointment.appointmentType}
-                            </p>
-                            <p className="text-gray-600 text-xs">
-                              <span className="font-semibold">Time:</span>{" "}
-                              {new Date(appointment.appointmentTime).toLocaleString()}
-                            </p>
-                            <p className="text-gray-600 text-xs">
-                              <span className="font-semibold">Shelter:</span>{" "}
-                              {appointment.shelterName}
-                            </p>
-                            <p className="text-gray-600 text-xs">
-                              {appointment.shelterAddress}
-                            </p>
-                          </>
-                        )}
+            {/* Appointments Tab */}
+            {activeTab === "appointments" && (
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-6">My Appointments</h2>
+
+                {editingAppointmentId && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
+                    <h3 className="text-lg font-bold mb-4">
+                      Reschedule Appointment
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-2">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={
+                            editingAppointmentData.appointmentDate || ""
+                          }
+                          onChange={(e) =>
+                            setEditingAppointmentData({
+                              ...editingAppointmentData,
+                              appointmentDate: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded px-3 py-2"
+                        />
                       </div>
-
-                      {editingAppointmentId !== appointment.appointmentID && (
-                        <button
-                          onClick={() => handleEditAppointment(appointment)}
-                          className="text-blue-400 hover:text-blue-500 font-semibold text-sm ml-4"
-                        >
-                          Edit
-                        </button>
-                      )}
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-2">
+                          Time
+                        </label>
+                        <input
+                          type="time"
+                          value={
+                            editingAppointmentData.appointmentTime || ""
+                          }
+                          onChange={(e) =>
+                            setEditingAppointmentData({
+                              ...editingAppointmentData,
+                              appointmentTime: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                      </div>
                     </div>
-                  ))}
+                    <div className="mb-4">
+                      <label className="block text-gray-700 font-semibold mb-2">
+                        Notes
+                      </label>
+                      <textarea
+                        value={editingAppointmentData.notes || ""}
+                        onChange={(e) =>
+                          setEditingAppointmentData({
+                            ...editingAppointmentData,
+                            notes: e.target.value,
+                          })
+                        }
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        rows="2"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleSaveAppointment}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEditAppointment}
+                        className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="text-left p-3 border-b font-semibold">
+                          Pet
+                        </th>
+                        <th className="text-left p-3 border-b font-semibold">
+                          Type
+                        </th>
+                        <th className="text-left p-3 border-b font-semibold">
+                          Date & Time
+                        </th>
+                        <th className="text-left p-3 border-b font-semibold">
+                          Status
+                        </th>
+                        <th className="text-left p-3 border-b font-semibold">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {appointments.length > 0 ? (
+                        appointments.map((apt) => (
+                          <tr
+                            key={apt.appointmentID}
+                            className="hover:bg-gray-50 border-b"
+                          >
+                            <td className="p-3 font-semibold text-blue-600">
+                              {apt.petName}
+                            </td>
+                            <td className="p-3">{apt.appointmentType}</td>
+                            <td className="p-3">
+                              {new Date(
+                                apt.appointmentTime + "Z"
+                              ).toLocaleString()}
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                  apt.status === "PENDING"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : apt.status === "UPCOMING"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {apt.status}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex gap-2">
+                                {apt.status === "UPCOMING" && (
+                                  <button
+                                    onClick={() => handleEditAppointment(apt)}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-semibold"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() =>
+                                    handleDeleteAppointment(apt.appointmentID)
+                                  }
+                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="5"
+                            className="p-6 text-center text-gray-500"
+                          >
+                            No appointments scheduled
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-        {/* End content wrapper */}
       </div>
-
-      {/* NEW APPLICATION MODAL */}
-      {showNewApplicationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">
-              Create New Application
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Pet Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter pet name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Pet Species
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Dog, Cat"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowNewApplicationModal(false);
-                    alert("Application submitted! (Backend integration needed)");
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-400 text-white rounded-full font-semibold text-sm hover:bg-blue-500 transition"
-                >
-                  Submit
-                </button>
-                <button
-                  onClick={() => setShowNewApplicationModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-full font-semibold text-sm hover:bg-gray-500 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NEW APPOINTMENT MODAL */}
-      {showNewAppointmentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">
-              Schedule New Appointment
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Pet Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter pet name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Shelter Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter shelter name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowNewAppointmentModal(false);
-                    alert("Appointment scheduled! (Backend integration needed)");
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-400 text-white rounded-full font-semibold text-sm hover:bg-blue-500 transition"
-                >
-                  Schedule
-                </button>
-                <button
-                  onClick={() => setShowNewAppointmentModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-full font-semibold text-sm hover:bg-gray-500 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

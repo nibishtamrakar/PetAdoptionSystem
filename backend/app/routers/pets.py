@@ -70,6 +70,7 @@ def list_pets(
                 dob=pet_obj.dob,
                 status=pet_obj.status,
                 intakeDate=pet_obj.intakeDate,
+                shelterID=pet_obj.shelterID,
                 shelterName=shelterName,
                 shelterAddress=shelterAddress,  
             )

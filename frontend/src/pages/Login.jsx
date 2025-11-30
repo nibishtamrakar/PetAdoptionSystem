@@ -31,6 +31,8 @@ const Login = () => {
       });
 
       const data = await res.json().catch(() => null);
+      console.log("Response status:", res.status, res.ok);  // ✅ Debug
+      console.log("Response data:", data);  
 
       if (!res.ok) {
         setError(data?.detail || "Login failed");

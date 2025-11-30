@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import PetCard from "../components/PetCard";
@@ -30,7 +30,7 @@ const BrowsePets = () => {
     navigate("/login", { replace: true });
   };
 
-  const fetchPets = async () => {
+  const fetchPets = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -41,7 +41,7 @@ const BrowsePets = () => {
 
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API_BASE_URL}/pets?${params.toString()}`, {
+      const res = await fetch(`${API_BASE_URL}/api/pets?${params.toString()}`, {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -61,11 +61,11 @@ const BrowsePets = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationQuery, animalQuery]);
 
   useEffect(() => {
     fetchPets();
-  }, [locationQuery, animalQuery]);
+  }, [fetchPets]);
 
   // const totalPages = Math.ceil(pets.length / PAGE_SIZE) || 1;
   // const startIndex = (currentPage - 1) * PAGE_SIZE;
@@ -96,7 +96,7 @@ const BrowsePets = () => {
   const visiblePets = filteredPets.slice(startIndex, startIndex + PAGE_SIZE);
 
   // suggestions (unique shelter name + address combos)
-  const locationSuggestions = Array.from(
+  const LocationSuggestions = Array.from(
     new Set(
       pets
         .map((p) => `${p.shelterName} – ${p.shelterAddress}`)

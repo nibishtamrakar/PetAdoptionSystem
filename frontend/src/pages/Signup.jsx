@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+import { API_BASE_URL } from "../config";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ const Signup = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/signup`, {
+      const res = await fetch(`${API_BASE_URL}/api/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

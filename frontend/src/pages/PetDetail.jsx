@@ -28,7 +28,7 @@ const PetDetail = () => {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${API_BASE_URL}/pets/${id}`);
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}`);
 
       if (!res.ok) {
         setError("Failed to load pet");
@@ -57,7 +57,7 @@ const PetDetail = () => {
           }
         : { "Content-Type": "application/json" };
 
-      const res = await fetch(`${API_BASE_URL}/pets/${id}/vaccines`, {
+      const res = await fetch(`${API_BASE_URL}/api/pets/${id}/vaccines`, {
         headers,
       });
 

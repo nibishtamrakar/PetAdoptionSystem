@@ -101,15 +101,15 @@ const AdminDashboard = () => {
           vaccinesRes,
           adoptionRes
         ] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/admin/shelters`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/pets`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/users`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/staff`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/upcoming-appointments`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/past-appointments`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/all-care-logs`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/vaccines`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/adoption-requests`, { headers })
+          fetch(`${API_BASE_URL}/admin/shelters`, { headers }),
+          fetch(`${API_BASE_URL}/admin/pets`, { headers }),
+          fetch(`${API_BASE_URL}/admin/users`, { headers }),
+          fetch(`${API_BASE_URL}/admin/staff`, { headers }),
+          fetch(`${API_BASE_URL}/admin/upcoming-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/admin/past-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/admin/all-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/admin/vaccines`, { headers }),
+          fetch(`${API_BASE_URL}/admin/adoption-requests`, { headers })
         ]);
 
         // Check if all responses are ok
@@ -149,7 +149,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/shelters`, {
+      const res = await fetch(`${API_BASE_URL}/admin/shelters`, {
         method: "POST",
         headers,
         body: JSON.stringify(newShelter)
@@ -176,7 +176,7 @@ const AdminDashboard = () => {
         Authorization: `Bearer ${token}`,
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/pets`, {
+      const res = await fetch(`${API_BASE_URL}/admin/pets`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -212,7 +212,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/pets/${petId}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/pets/${petId}`, {
         method: "DELETE",
         headers
       });
@@ -233,7 +233,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
         method: "DELETE",
         headers
       });
@@ -255,7 +255,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/shelters/${shelterId}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/shelters/${shelterId}`, {
         method: "DELETE",
         headers
       });
@@ -277,7 +277,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/accept`, {
+      const res = await fetch(`${API_BASE_URL}/adoption-requests/${adoptionId}/accept`, {
         method: "PUT",
         headers
       });
@@ -303,7 +303,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/adoption-requests/${adoptionId}/reject`, {
         method: "PUT",
         headers
       });
@@ -333,7 +333,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/shelters/${editingShelter.shelterID}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/shelters/${editingShelter.shelterID}`, {
         method: "PUT",
         headers,
         body: JSON.stringify(editingShelter)
@@ -359,7 +359,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/vaccines`, {
+      const res = await fetch(`${API_BASE_URL}/admin/vaccines`, {
         method: "POST",
         headers,
         body: JSON.stringify(newVaccine)
@@ -384,7 +384,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/vaccines/${vaccineId}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/vaccines/${vaccineId}`, {
         method: "DELETE",
         headers
       });
@@ -407,7 +407,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/make-staff`, {
+      const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/make-staff`, {
         method: "POST",
         headers,
         body: JSON.stringify({ shelterID: shelterId })
@@ -416,8 +416,8 @@ const AdminDashboard = () => {
       if (res.ok) {
         // Refresh users and staff data
         const [usersRes, staffRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/admin/users`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/staff`, { headers })
+          fetch(`${API_BASE_URL}/admin/users`, { headers }),
+          fetch(`${API_BASE_URL}/admin/staff`, { headers })
         ]);
         setUsers(await usersRes.json());
         setStaff(await staffRes.json());
@@ -435,7 +435,7 @@ const AdminDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/staff/${userId}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/staff/${userId}`, {
         method: "DELETE",
         headers
       });
@@ -443,8 +443,8 @@ const AdminDashboard = () => {
       if (res.ok) {
         // Refresh users and staff data
         const [usersRes, staffRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/admin/users`, { headers }),
-          fetch(`${API_BASE_URL}/api/admin/staff`, { headers })
+          fetch(`${API_BASE_URL}/admin/users`, { headers }),
+          fetch(`${API_BASE_URL}/admin/staff`, { headers })
         ]);
         setUsers(await usersRes.json());
         setStaff(await staffRes.json());

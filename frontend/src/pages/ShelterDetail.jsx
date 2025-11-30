@@ -21,7 +21,7 @@ const ShelterDetail = () => {
         }
 
         // Fetch shelter details
-        const shelterResponse = await fetch(`${API_BASE_URL}/api/admin/shelters/${id}`, {
+        const shelterResponse = await fetch(`${API_BASE_URL}/admin/shelters/${id}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -35,7 +35,7 @@ const ShelterDetail = () => {
         setShelter(shelterData);
 
         // Fetch shelter pets
-        const petsResponse = await fetch(`${API_BASE_URL}/api/admin/shelters/${id}/pets`, {
+        const petsResponse = await fetch(`${API_BASE_URL}/admin/shelters/${id}/pets`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }

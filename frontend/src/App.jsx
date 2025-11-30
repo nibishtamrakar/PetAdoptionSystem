@@ -12,6 +12,7 @@ import StaffProfile from './pages/StaffProfile'
 import AdminDashboard from './pages/AdminDashboard'
 import ShelterDetail from './pages/ShelterDetail'
 import ProtectedRoute from './components/ProtectedRoute';
+import Profile from './pages/profile'
 
 const PetRouteWrapper = () => {
   const userData = localStorage.getItem("user");
@@ -29,6 +30,8 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<About />} />
         <Route path="/login" element={<Login />} />

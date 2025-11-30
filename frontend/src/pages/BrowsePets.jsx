@@ -41,7 +41,7 @@ const BrowsePets = () => {
 
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API_BASE_URL}/api/pets?${params.toString()}`, {
+      const res = await fetch(`${API_BASE_URL}/pets?${params.toString()}`, {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),

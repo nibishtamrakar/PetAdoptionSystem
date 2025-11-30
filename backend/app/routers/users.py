@@ -217,10 +217,10 @@ async def get_user_adoptions(user_id: int, current_user = Depends(get_current_us
     if current_user.userID != user_id:
         raise HTTPException(status_code=403, detail="Forbidden")
     
-    # ✅ EAGER LOAD pet relationship
+    # ✅ EAGER LOAD pet relationship - Only APPLIED status
     adoptions = db.query(models.Adoption).options(
         joinedload(models.Adoption.pet)
-    ).filter(models.Adoption.adopterID == user_id).all()
+    ).filter(models.Adoption.adopterID == user_id).filter(models.Adoption.status == "APPLIED").all()
     
     adoption_list = []
     for adoption in adoptions:
@@ -229,6 +229,31 @@ async def get_user_adoptions(user_id: int, current_user = Depends(get_current_us
             "petName": adoption.pet.name if adoption.pet else "Unknown Pet",
             "petSpecies": adoption.pet.species if adoption.pet else "Unknown",
             "applicationDate": adoption.applicationDate,
+            "status": adoption.status,
+        })
+    
+    return adoption_list if adoption_list else []
+
+
+@router.get("/users/{user_id}/approved-adoptions")
+async def get_user_approved_adoptions(user_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.userID != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # ✅ EAGER LOAD pet relationship - Only APPROVED status
+    adoptions = db.query(models.Adoption).options(
+        joinedload(models.Adoption.pet)
+    ).filter(models.Adoption.adopterID == user_id).filter(models.Adoption.status == "APPROVED").all()
+    
+    adoption_list = []
+    for adoption in adoptions:
+        adoption_list.append({
+            "adoptionID": adoption.adoptionID,
+            "petName": adoption.pet.name if adoption.pet else "Unknown Pet",
+            "petSpecies": adoption.pet.species if adoption.pet else "Unknown",
+            "petID": adoption.pet.petID if adoption.pet else None,
+            "applicationDate": adoption.applicationDate,
+            "approvalDate": adoption.approvalDate,
             "status": adoption.status,
         })
     

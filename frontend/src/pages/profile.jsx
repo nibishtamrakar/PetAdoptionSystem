@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { API_BASE_URL } from "../config";
 
@@ -16,6 +16,7 @@ const Profile = () => {
   const [editingAppointmentData, setEditingAppointmentData] = useState({});
   const [showNewApplicationModal, setShowNewApplicationModal] = useState(false);
   const [pets, setPets] = useState([]);
+  const [approvedAdoptions, setApprovedAdoptions] = useState([]);
 
   // Adoption form with appointment fields
   const [newAdoptionForm, setNewAdoptionForm] = useState({
@@ -35,13 +36,13 @@ const Profile = () => {
   const [updateSuccess, setUpdateSuccess] = useState(null);
 
   const token = localStorage.getItem("token");
-  const headers = {
+  const headers = useMemo(() => ({
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
-  };
+  }), [token]);
 
   // ========== FETCH PROFILE DATA ==========
-  const fetchProfileData = async (userData) => {
+  const fetchProfileData = useCallback(async (userData) => {
     if (!userData) return;
     try {
       setLoading(true);
@@ -85,6 +86,16 @@ const Profile = () => {
       const adoptionsData = await adoptionsRes.json();
       setAdoptions(adoptionsData || []);
 
+      // Approved Adoptions
+      const approvedAdoptionsRes = await fetch(
+        `${API_BASE_URL}/api/users/${userData.userID}/approved-adoptions`,
+        { credentials: "include", headers }
+      );
+      if (approvedAdoptionsRes.ok) {
+        const approvedAdoptionsData = await approvedAdoptionsRes.json();
+        setApprovedAdoptions(approvedAdoptionsData || []);
+      }
+
       // Appointments
       const appointmentsRes = await fetch(
         `${API_BASE_URL}/api/users/${userData.userID}/appointments`,
@@ -106,10 +117,10 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [headers]);
 
   // ========== FETCH PETS ==========
-  const fetchPetsAndShelters = async () => {
+  const fetchPetsAndShelters = useCallback(async () => {
     try {
       const petsRes = await fetch(`${API_BASE_URL}/api/pets`, {
         credentials: "include",
@@ -125,13 +136,13 @@ const Profile = () => {
     } catch (err) {
       console.error("Error fetching pets:", err);
     }
-  };
+  }, [headers]);
 
   useEffect(() => {
     if (showNewApplicationModal) {
       fetchPetsAndShelters();
     }
-  }, [showNewApplicationModal]);
+  }, [showNewApplicationModal, fetchPetsAndShelters]);
 
   // ========== ADOPTION HANDLERS ==========
   const handleAdoptionPetChange = (e) => {
@@ -393,7 +404,7 @@ const Profile = () => {
       localStorage.removeItem("user");
       navigate("/login", { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, fetchProfileData]);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -410,7 +421,7 @@ const Profile = () => {
 
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, []);
+  }, [fetchProfileData]);
 
   if (loading) {
     return (
@@ -544,6 +555,16 @@ const Profile = () => {
                 }`}
               >
                 Applications
+              </button>
+              <button
+                onClick={() => setActiveTab("approved")}
+                className={`flex-1 py-4 px-6 font-semibold ${
+                  activeTab === "approved"
+                    ? "bg-blue-100 text-blue-800 border-b-2 border-blue-800"
+                    : "text-gray-600"
+                }`}
+              >
+                My Pets
               </button>
               <button
                 onClick={() => setActiveTab("appointments")}
@@ -768,6 +789,40 @@ const Profile = () => {
               </div>
             )}
 
+            {/* My Pets Tab */}
+            {activeTab === "approved" && (
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-6">My Pets</h2>
+                
+                {approvedAdoptions.length === 0 ? (
+                  <p className="text-gray-500">No approved applications found.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {approvedAdoptions.map((adoption) => (
+                      <div key={adoption.adoptionID} className="border rounded-lg p-4 bg-green-50 border-green-200">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-lg font-semibold text-green-800">
+                              {adoption.petName}
+                            </h3>
+                            <p className="text-gray-600">
+                              {adoption.petSpecies} • Approved on {new Date(adoption.approvalDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Link 
+                            to={`/pet/${adoption.petID}`}
+                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                          >
+                            View Pet Details
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Appointments Tab */}
             {activeTab === "appointments" && (
               <div className="p-6">
@@ -863,9 +918,6 @@ const Profile = () => {
                           Date & Time
                         </th>
                         <th className="text-left p-3 border-b font-semibold">
-                          Status
-                        </th>
-                        <th className="text-left p-3 border-b font-semibold">
                           Actions
                         </th>
                       </tr>
@@ -887,44 +939,33 @@ const Profile = () => {
                               ).toLocaleString()}
                             </td>
                             <td className="p-3">
-                              <span
-                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                  apt.status === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : apt.status === "UPCOMING"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {apt.status}
-                              </span>
-                            </td>
-                            <td className="p-3">
                               <div className="flex gap-2">
-                                {apt.status === "UPCOMING" && (
-                                  <button
-                                    onClick={() => handleEditAppointment(apt)}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-semibold"
-                                  >
-                                    Edit
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() =>
-                                    handleDeleteAppointment(apt.appointmentID)
-                                  }
-                                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
+  {new Date(apt.appointmentTime + "Z") > new Date() && (
+    <>
+      <button
+        onClick={() => handleEditAppointment(apt)}
+        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-semibold"
+      >
+        Edit
+      </button>
+      <button
+        onClick={() =>
+          handleDeleteAppointment(apt.appointmentID)
+        }
+        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold"
+      >
+        Cancel
+      </button>
+    </>
+  )}
+</div>
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td
-                            colSpan="5"
+                            colSpan="4"
                             className="p-6 text-center text-gray-500"
                           >
                             No appointments scheduled

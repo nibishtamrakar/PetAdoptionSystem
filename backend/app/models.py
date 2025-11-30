@@ -24,11 +24,11 @@ class UserAccount(Base):
     passwordHash = Column(String(255), nullable=False)
 
     # relationships
-    adoptions = relationship("Adoption", back_populates="adopter")
-    appointments = relationship("Appointment", back_populates="adopter")
-    care_logs = relationship("CareLog", back_populates="staff")
+    adoptions = relationship("Adoption", back_populates="adopter", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="adopter", cascade="all, delete-orphan")
+    care_logs = relationship("CareLog", back_populates="staff", cascade="all, delete-orphan")
 
-    staff_profile = relationship("Staff", back_populates="user", uselist=False)
+    staff_profile = relationship("Staff", back_populates="user", cascade="all, delete-orphan", uselist=False)
 
 
 # 2. ---------- SHELTER ----------
@@ -80,10 +80,10 @@ class Pet(Base):
     intakeDate = Column(Date, nullable=False)
 
     shelter = relationship("Shelter", back_populates="pets")
-    adoptions = relationship("Adoption", back_populates="pet")
-    appointments = relationship("Appointment", back_populates="pet")
-    care_logs = relationship("CareLog", back_populates="pet")
-    vaccines = relationship("PetVaccine", back_populates="pet")
+    adoptions = relationship("Adoption", back_populates="pet", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="pet", cascade="all, delete-orphan")
+    care_logs = relationship("CareLog", back_populates="pet", cascade="all, delete-orphan")
+    vaccines = relationship("PetVaccine", back_populates="pet", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("ix_pet_status", "status"),

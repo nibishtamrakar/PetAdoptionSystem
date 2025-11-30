@@ -14,6 +14,7 @@ class PetOut(BaseModel):
     dob: Optional[date]
     status: str
     intakeDate: date
+    shelterID: Optional[int]=None
     shelterName: str
     shelterAddress: str
     

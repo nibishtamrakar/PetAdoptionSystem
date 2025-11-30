@@ -70,6 +70,7 @@ def list_pets(
                 dob=pet_obj.dob,
                 status=pet_obj.status,
                 intakeDate=pet_obj.intakeDate,
+                shelterID=pet_obj.shelterID,
                 shelterName=shelterName,
                 shelterAddress=shelterAddress,  
             )
@@ -159,4 +160,5 @@ def update_pet(pet_id: int, pet_data: dict, db: Session = Depends(get_db)):
         shelterName=shelter.name,
         shelterAddress=shelter.address, 
         ageYears=ageYears,
+        
     )

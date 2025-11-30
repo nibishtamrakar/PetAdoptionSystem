@@ -1,6 +1,6 @@
 # app/routers/users.py
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
 import hashlib
@@ -174,3 +174,183 @@ def logout(response: Response):
     # Clear the session cookie
     response.delete_cookie("user_id")
     return {"message": "Successfully logged out"}
+@router.get("/users/{user_id}", response_model=UserOut)
+def get_user(user_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get a user profile by ID"""
+    if current_user.userID != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user = db.query(models.UserAccount).filter(models.UserAccount.userID == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserOut)
+def update_user(user_id: int, payload: dict, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Update a user profile"""
+    if current_user.userID != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user = db.query(models.UserAccount).filter(models.UserAccount.userID == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if "name" in payload:
+        user.name = payload["name"]
+    if "email" in payload:
+        user.email = payload["email"]
+    if "phone" in payload:
+        user.phone = payload["phone"]
+    
+    db.commit()
+    db.refresh(user)
+    
+    return user
+@router.get("/users/{user_id}/adoptions")
+async def get_user_adoptions(user_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.userID != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # ✅ EAGER LOAD pet relationship
+    adoptions = db.query(models.Adoption).options(
+        joinedload(models.Adoption.pet)
+    ).filter(models.Adoption.adopterID == user_id).all()
+    
+    adoption_list = []
+    for adoption in adoptions:
+        adoption_list.append({
+            "adoptionID": adoption.adoptionID,
+            "petName": adoption.pet.name if adoption.pet else "Unknown Pet",
+            "petSpecies": adoption.pet.species if adoption.pet else "Unknown",
+            "applicationDate": adoption.applicationDate,
+            "status": adoption.status,
+        })
+    
+    return adoption_list if adoption_list else []
+
+
+
+
+@router.get("/users/{user_id}/appointments")
+async def get_user_appointments(user_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get all appointments for a user"""
+    if current_user.userID != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    try:
+        appointments = db.query(models.Appointment).options(
+            joinedload(models.Appointment.pet),
+            joinedload(models.Appointment.shelter)
+        ).filter(models.Appointment.adopterID == user_id).all()
+        
+        appointment_list = []
+        for apt in appointments:
+            appointment_list.append({
+                "appointmentID": apt.appointmentID,
+                "petID": apt.petID,
+                "petName": apt.pet.name if apt.pet else "Unknown Pet",
+                "petSpecies": apt.pet.species if apt.pet else "Unknown",
+                "appointmentTime": apt.appointmentTime,
+                "appointmentType": apt.appointmentType,
+                "shelterName": apt.shelter.name if apt.shelter else "Unknown Shelter",
+                "shelterAddress": apt.shelter.address if apt.shelter else "N/A"
+            })
+        
+        return appointment_list if appointment_list else []
+    
+    except Exception as e:
+        print(f"ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+@router.post("/appointments")
+async def create_appointment(
+    appointment_data: dict,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new appointment request (from modal)"""
+    # Validate user is an adopter
+    if current_user.role != "ADOPTER":
+        raise HTTPException(status_code=403, detail="Only adopters can request appointments")
+    
+    try:
+        # Parse appointment time
+        appt_time = datetime.fromisoformat(appointment_data.get("appointmentTime"))
+        
+        # Create appointment with PENDING status
+        new_appointment = models.Appointment(
+            adopterID=current_user.userID,
+            petID=appointment_data.get("petID"),
+            shelterID=appointment_data.get("shelterID"),
+            appointmentTime=appt_time,
+            appointmentType=appointment_data.get("appointmentType", "VIEWING"),
+            status="PENDING",
+            requestedAt=datetime.utcnow()
+        )
+        
+        db.add(new_appointment)
+        db.commit()
+        db.refresh(new_appointment)
+        
+        return {
+            "appointmentID": new_appointment.appointmentID,
+            "status": new_appointment.status,
+            "requestedAt": new_appointment.requestedAt,
+            "message": "Appointment request created successfully"
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid appointment data: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating appointment: {str(e)}")
+
+
+@router.put("/appointments/{appointment_id}")
+async def update_appointment(
+    appointment_id: int,
+    appointment_data: dict,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update an appointment (reschedule or cancel)"""
+    appointment = db.query(models.Appointment).filter(models.Appointment.appointmentID == appointment_id).first()
+    
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # Only the requester or staff can update
+    if current_user.userID != appointment.adopterID and current_user.role != "STAFF":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    try:
+        # Update appointmentTime if provided
+        if "appointmentTime" in appointment_data and appointment_data["appointmentTime"]:
+            appointment.appointmentTime = datetime.fromisoformat(appointment_data["appointmentTime"])
+        
+        # Update status if provided (for cancelling, etc)
+        if "status" in appointment_data:
+            appointment.status = appointment_data["status"]
+        
+        db.commit()
+        db.refresh(appointment)
+        
+        return {
+            "appointmentID": appointment.appointmentID,
+            "status": appointment.status,
+            "appointmentTime": appointment.appointmentTime,
+            "message": "Appointment updated successfully"
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid appointment data: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating appointment: {str(e)}")

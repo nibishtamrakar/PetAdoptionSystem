@@ -17,7 +17,9 @@ from app.schemas import (
     UserOut,
     LoginIn,
     LoginOut,
+    AdoptionCreate,
     AdoptionOut,
+    ScheduleAppointmentIn,
     AppointmentOut,
 )
 
@@ -174,3 +176,44 @@ def logout(response: Response):
     # Clear the session cookie
     response.delete_cookie("user_id")
     return {"message": "Successfully logged out"}
+
+@router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
+def schedule_appointment(payload: ScheduleAppointmentIn, db: Session = Depends(get_db), current_user: models.UserAccount = Depends(get_current_user)):
+    """
+    Create a new appointment for the currently logged-in user (adopter).
+    adopterID comes from the JWT token (current_user.userID).
+    """
+
+    appt = models.Appointment(
+        petID=payload.petID,
+        adopterID=current_user.userID,      # from token
+        shelterID=payload.shelterID,
+        appointmentTime=payload.appointmentTime,
+        appointmentType=payload.appointmentType,
+    )
+
+    db.add(appt)
+    db.commit()
+    db.refresh(appt)
+
+    return appt
+
+@router.post("/adoptions", response_model=AdoptionOut, status_code=status.HTTP_201_CREATED)
+def new_adoption(payload: AdoptionCreate, db: Session = Depends(get_db), current_user: models.UserAccount = Depends(get_current_user)):
+    """
+    Create a new adoption for the currently logged-in user (adopter).
+    adopterID comes from the JWT token (current_user.userID).
+    """
+
+    adoption = models.Adoption(
+        petID = payload.petID,
+        adopterID = current_user.userID,
+        status = "APPLIED",
+        applicationDate = datetime.now(),
+    )
+
+    db.add(adoption)
+    db.commit()
+    db.refresh(adoption)
+
+    return adoption

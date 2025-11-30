@@ -3,10 +3,13 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import Navbar from "../components/Navbar";
+import AppointmentModal from "../components/AppointmentModal";
 
 const PetDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  // appointment
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
   const [pet, setPet] = useState(null);
   const [petVaccines, setPetVaccines] = useState([]);
@@ -33,6 +36,7 @@ const PetDetail = () => {
       }
 
       const data = await res.json();
+      // console.log(data);
       setPet(data);
     } catch (err) {
       console.error("Failed to load pet:", err);
@@ -167,6 +171,60 @@ const PetDetail = () => {
       pet.species?.toLowerCase() || "lovely pet"
     } currently cared for at ${pet.shelterName || "our shelter"}.`;
 
+
+  // Adoption button
+  const applyToAdopt = async () => {
+    const token = localStorage.getItem("token");
+    const payload = { petID: Number(pet.petID) };
+
+    const res = await fetch(`${API_BASE_URL}/api/adoptions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, 
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Adoption error raw response:", res.status, text);
+
+      let msg = `Request failed (${res.status})`;
+
+      try {
+        const data = JSON.parse(text);
+        if (data.detail) {
+          msg =
+            typeof data.detail === "string"
+              ? data.detail
+              : JSON.stringify(data.detail);
+        }
+      } catch {
+        // keep default msg
+      }
+
+      throw new Error(msg);
+    }
+
+    return res.json();
+  };
+
+  // Adoption popup
+  const handleApplyClick = async () => {
+    if (!pet) return; // safety
+
+    const petName = pet.name || "this pet";
+
+    const ok = window.confirm(
+      `Submit an adoption application for ${petName}?`
+    );
+    if (!ok) return;
+
+    await applyToAdopt();
+  };
+
+
   return (
     <div className="min-h-screen bg-[#5b8fc0] text-white flex flex-col">
       {/* NAVBAR */}
@@ -271,16 +329,14 @@ const PetDetail = () => {
           <div className="mt-10 flex gap-8 flex-wrap justify-center mb-10">
             <button
               className="px-10 py-3 rounded-full bg-[#a9c9f5] text-[#234971] font-semibold shadow-md hover:bg-[#c1d9fa] transition"
-              onClick={() => {
-                console.log("Adopt Me clicked");
-              }}
+              onClick={handleApplyClick}
             >
               Adopt Me
             </button>
             <button
               className="px-10 py-3 rounded-full bg-[#a9c9f5] text-[#234971] font-semibold shadow-md hover:bg-[#c1d9fa] transition"
               onClick={() => {
-                console.log("Meet Me clicked");
+                setShowAppointmentModal(true)
               }}
             >
               Meet Me
@@ -288,6 +344,30 @@ const PetDetail = () => {
           </div>
         </div>
       </div>
+      
+      {/* <div className="mt-6 flex justify-center">
+        <button
+          onClick={() => setShowAppointmentModal(true)}
+          className="px-8 py-2 rounded-full bg-green-500 text-white shadow hover:bg-green-600"
+        >
+          Schedule Appointment
+        </button>
+      </div>
+      <div className="mt-6 flex justify-center">
+        <button
+          onClick={handleApplyClick}
+          className="mt-2 px-4 py-2 rounded-full bg-green-500 text-white text-sm hover:bg-green-600"
+        >
+          Apply to Adopt
+        </button>
+      </div> */}
+
+      <AppointmentModal
+        open={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+        pet={pet}
+      />
+
     </div>
   );
 };

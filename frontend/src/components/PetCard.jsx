@@ -42,7 +42,7 @@ const PetCard = ({ pet }) => {
             Shelter: {pet.shelterName}
           </div>
 
-          <p className="mt-auto text-xs underline">View Details</p>
+          <p className="mt-auto text-xs underline">View Details and Schedule Appointment</p>
         </div>
 
       </div>

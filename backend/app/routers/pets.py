@@ -116,6 +116,7 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         dob=pet.dob,
         status=pet.status,
         intakeDate=pet.intakeDate,
+        shelterID=shelter.shelterID,
         shelterName=shelter.name,
         shelterAddress=shelter.address,
         ageYears=ageYears,

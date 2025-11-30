@@ -2,3 +2,5 @@ frontend/.env
 backend/.env
 backend/ca.pem
 venv/
+backend/app/__pycache__/*
+backend/app/routers/__pycache__/*

@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import func, or_, text
 
 from app.database import SessionLocal
 from app import models
@@ -79,11 +79,24 @@ def list_pets(
 
 
 
-
 @router.get("/pets/{pet_id}", response_model=PetDetailOut)
 def get_pet(pet_id: int, db: Session = Depends(get_db)):
+    # SQL-level computed fields (MySQL):
+    # ageYears  = TIMESTAMPDIFF(YEAR, dob, CURDATE())
+    # daysInCare = GREATEST(0, DATEDIFF(CURDATE(), intakeDate))
+    age_expr = func.timestampdiff(text("YEAR"), models.Pet.dob, func.curdate())
+    days_expr = func.greatest(
+        0,
+        func.datediff(func.curdate(), models.Pet.intakeDate),
+    )
+
     row = (
-        db.query(models.Pet, models.Shelter)
+        db.query(
+            models.Pet,
+            models.Shelter,
+            age_expr.label("ageYears"),
+            days_expr.label("daysInCare"),
+        )
         .join(models.Shelter, models.Pet.shelterID == models.Shelter.shelterID)
         .filter(models.Pet.petID == pet_id)
         .first()
@@ -92,11 +105,7 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
     if not row:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    pet, shelter = row
-
-    ageYears = None
-    if pet.dob:
-        ageYears = round((date.today() - pet.dob).days / 365, 1)
+    pet, shelter, ageYears, daysInCare = row
 
     return PetDetailOut(
         petID=pet.petID,
@@ -108,18 +117,20 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         status=pet.status,
         intakeDate=pet.intakeDate,
         shelterName=shelter.name,
-        shelterAddress=shelter.address, 
+        shelterAddress=shelter.address,
         ageYears=ageYears,
+        daysInCare=daysInCare,
     )
+
 
 @router.put("/pets/{pet_id}", response_model=PetDetailOut)
 def update_pet(pet_id: int, pet_data: dict, db: Session = Depends(get_db)):
     """Update a pet's details"""
     pet = db.query(models.Pet).filter(models.Pet.petID == pet_id).first()
-    
+
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
-    
+
     # Convert sex values
     if "sex" in pet_data:
         if pet_data["sex"] in ["Male", "M"]:
@@ -129,24 +140,42 @@ def update_pet(pet_id: int, pet_data: dict, db: Session = Depends(get_db)):
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid sex value. Must be 'Male', 'Female', 'M', or 'F'"
+                detail="Invalid sex value. Must be 'Male', 'Female', 'M', or 'F'",
             )
-    
+
     # Update pet fields
     for field, value in pet_data.items():
         if hasattr(pet, field) and field != "petID":
             setattr(pet, field, value)
-    
+
     db.commit()
     db.refresh(pet)
-    
-    # Get shelter info for response
-    shelter = db.query(models.Shelter).filter(models.Shelter.shelterID == pet.shelterID).first()
-    
-    ageYears = None
-    if pet.dob:
-        ageYears = round((date.today() - pet.dob).days / 365, 1)
-    
+
+    # Re-query with shelter + SQL-computed ageYears and daysInCare
+    age_expr = func.timestampdiff(text("YEAR"), models.Pet.dob, func.curdate())
+    days_expr = func.greatest(
+        0,
+        func.datediff(func.curdate(), models.Pet.intakeDate),
+    )
+
+    row = (
+        db.query(
+            models.Pet,
+            models.Shelter,
+            age_expr.label("ageYears"),
+            days_expr.label("daysInCare"),
+        )
+        .join(models.Shelter, models.Pet.shelterID == models.Shelter.shelterID)
+        .filter(models.Pet.petID == pet_id)
+        .first()
+    )
+
+    if not row:
+        # Very unlikely after update, but just in case
+        raise HTTPException(status_code=404, detail="Pet not found after update")
+
+    pet, shelter, ageYears, daysInCare = row
+
     return PetDetailOut(
         petID=pet.petID,
         name=pet.name,
@@ -157,6 +186,7 @@ def update_pet(pet_id: int, pet_data: dict, db: Session = Depends(get_db)):
         status=pet.status,
         intakeDate=pet.intakeDate,
         shelterName=shelter.name,
-        shelterAddress=shelter.address, 
+        shelterAddress=shelter.address,
         ageYears=ageYears,
+        daysInCare=daysInCare,
     )

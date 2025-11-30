@@ -152,29 +152,11 @@ const PetDetail = () => {
   }
 
   // ---------- computed fields ----------
+  const age =
+    pet.ageYears != null ? `${pet.ageYears} yrs` : "N/A";
 
-  // age: if backend gives ageYears, use it; otherwise compute from dob
-  let age;
-  if (pet.ageYears != null) {
-    age = `${pet.ageYears} yrs`;
-  } else if (pet.dob) {
-    const years =
-      (Date.now() - new Date(pet.dob).getTime()) /
-      (1000 * 60 * 60 * 24 * 365);
-    age = `${years.toFixed(1)} yrs`;
-  } else {
-    age = "N/A";
-  }
-
-  const daysInCare = pet.intakeDate
-    ? Math.max(
-        0,
-        Math.floor(
-          (Date.now() - new Date(pet.intakeDate).getTime()) /
-            (1000 * 60 * 60 * 24)
-        )
-      )
-    : null;
+  const daysInCare =
+    pet.daysInCare != null ? pet.daysInCare : "N/A";
 
   const location = pet.shelterAddress || pet.shelterName || "N/A";
   const weight = pet.weight || "N/A"; // placeholder if you add weight later

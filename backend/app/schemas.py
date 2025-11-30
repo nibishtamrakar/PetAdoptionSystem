@@ -33,6 +33,7 @@ class PetDetailOut(BaseModel):
     shelterName: str
     shelterAddress: str     
     ageYears: Optional[float]
+    daysInCare: Optional[int]
 
     class Config:
         from_attributes = True

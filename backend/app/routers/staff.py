@@ -432,6 +432,11 @@ def reject_adoption_request(adoption_id: int, request: Request, db: Session = De
     # Update adoption status
     adoption.status = "REJECTED"
     
+    # Update pet status back to AVAILABLE
+    pet = db.query(models.Pet).filter(models.Pet.petID == adoption.petID).first()
+    if pet:
+        pet.status = "AVAILABLE"
+    
     db.commit()
     return {"message": "Adoption request rejected"}
 

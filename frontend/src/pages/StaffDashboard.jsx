@@ -86,7 +86,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/staff-care-logs`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-care-logs`, {
         method: "POST",
         headers,
         body: JSON.stringify(newCareLog)
@@ -116,7 +116,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/staff-care-logs/${careId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-care-logs/${careId}`, {
         method: "DELETE",
         headers
       });
@@ -156,7 +156,7 @@ const StaffDashboard = () => {
       console.log('Local Date:', localDate);
       console.log('ISO String:', localDate.toISOString());
       
-      const res = await fetch(`${API_BASE_URL}/staff-appointments`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-appointments`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -210,7 +210,7 @@ const StaffDashboard = () => {
       console.log('Local Date:', localDate);
       console.log('ISO String:', localDate.toISOString());
       
-      const res = await fetch(`${API_BASE_URL}/staff-appointments/${editingAppointment.appointmentID}`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-appointments/${editingAppointment.appointmentID}`, {
         method: "PUT",
         headers,
         body: JSON.stringify({
@@ -250,7 +250,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/staff-appointments/${appointmentId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-appointments/${appointmentId}`, {
         method: "DELETE",
         headers
       });
@@ -276,7 +276,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/staff-pets`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff-pets`, {
         method: "POST",
         headers,
         body: JSON.stringify(newPet)
@@ -331,15 +331,15 @@ const StaffDashboard = () => {
         setUser(user);
 
         const [petsRes, usersRes, careLogsRes, appointmentsRes, recentCareLogsRes, upcomingAppointmentsRes, allCareLogsRes, pastAppointmentsRes, adoptionRequestsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/staff-pets`, { headers }),
-          fetch(`${API_BASE_URL}/users`, { headers }),
-          fetch(`${API_BASE_URL}/staff-care-logs`, { headers }),
-          fetch(`${API_BASE_URL}/staff-appointments`, { headers }),
-          fetch(`${API_BASE_URL}/recent-care-logs`, { headers }),
-          fetch(`${API_BASE_URL}/upcoming-appointments`, { headers }),
-          fetch(`${API_BASE_URL}/all-care-logs`, { headers }),
-          fetch(`${API_BASE_URL}/past-appointments`, { headers }),
-          fetch(`${API_BASE_URL}/adoption-requests`, { headers })
+          fetch(`${API_BASE_URL}/api/staff-pets`, { headers }),
+          fetch(`${API_BASE_URL}/api/users`, { headers }),
+          fetch(`${API_BASE_URL}/api/staff-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/staff-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/recent-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/upcoming-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/all-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/past-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/adoption-requests`, { headers })
         ]);
 
         if (!petsRes.ok || !usersRes.ok || !careLogsRes.ok || !appointmentsRes.ok || !recentCareLogsRes.ok || !upcomingAppointmentsRes.ok || !allCareLogsRes.ok || !pastAppointmentsRes.ok || !adoptionRequestsRes.ok) {
@@ -391,7 +391,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/adoption-requests/${adoptionId}/accept`, {
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/accept`, {
         method: "PUT",
         headers
       });
@@ -418,7 +418,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/adoption-requests/${adoptionId}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/reject`, {
         method: "PUT",
         headers
       });
@@ -444,7 +444,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/adoption-requests`, { headers });
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests`, { headers });
       if (res.ok) {
         const data = await res.json();
         setAdoptionRequests(data);
@@ -462,7 +462,7 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
-      const res = await fetch(`${API_BASE_URL}/staff-pets`, { headers });
+      const res = await fetch(`${API_BASE_URL}/api/staff-pets`, { headers });
       if (res.ok) {
         const data = await res.json();
         setPets(data);

@@ -40,7 +40,36 @@ async def create_adoption(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pet not found"
             )
-
+        
+        if pet.status != "AVAILABLE":
+            status_messages = {
+                "HOLD": "Sorry! This pet is currently on hold for a adoption application",
+                "ADOPTED": "Sorry! This pet has already been adopted",
+                "UNKNOWN": "Sorry! This pet's availability status is unknown"
+            }
+            message = status_messages.get(pet.status, f"Sorry! This pet is not available for adoption. Current status: {pet.status}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
+            )
+        
+        # Check if user already applied for this pet
+        existing_adoption = db.query(models.Adoption).filter(
+            models.Adoption.petID == adoption_data.get("petID"),
+            models.Adoption.adopterID == current_user.userID,
+            models.Adoption.status.in_(["APPLIED", "APPROVED"])
+        ).first()
+        
+        if existing_adoption:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You have already applied for this pet"
+            )
+        
+        # Set pet to HOLD immediately to prevent race conditions
+        pet.status = "HOLD"
+        db.commit()  # Commit status change immediately
+        
         new_adoption = models.Adoption(
             petID=adoption_data.get("petID"),
             adopterID=current_user.userID,

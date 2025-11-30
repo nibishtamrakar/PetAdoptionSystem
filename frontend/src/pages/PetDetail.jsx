@@ -172,6 +172,42 @@ const PetDetail = () => {
     } currently cared for at ${pet.shelterName || "our shelter"}.`;
 
 
+  // Adoption popup function
+  const showPopup = (message, type = 'error') => {
+    const popup = document.createElement('div');
+    popup.textContent = message;
+    popup.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${type === 'error' ? '#f44336' : '#4caf50'};
+      color: white;
+      padding: 12px 20px;
+      border-radius: 4px;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      max-width: 300px;
+      text-align: center;
+    `;
+    
+    document.body.appendChild(popup);
+    
+    // Fade in
+    setTimeout(() => popup.style.opacity = '1', 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      popup.style.opacity = '0';
+      setTimeout(() => {
+        if (document.body.contains(popup)) {
+          document.body.removeChild(popup);
+        }
+      }, 300);
+    }, 3000);
+  };
+
   // Adoption button
   const applyToAdopt = async () => {
     const token = localStorage.getItem("token");
@@ -204,9 +240,15 @@ const PetDetail = () => {
         // keep default msg
       }
 
-      throw new Error(msg);
+      // Show popup instead of throwing error
+      showPopup(msg);
+      return;
     }
 
+    // Success
+    showPopup("Adoption application submitted successfully!", 'success');
+    // Optionally refresh pet data to show new status
+    fetchPetDetail();
     return res.json();
   };
 

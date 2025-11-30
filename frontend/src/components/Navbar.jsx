@@ -86,8 +86,21 @@ const Navbar = ({children}) => {
                         </button>
                     </div>
                 ) : (
-                    // Default/empty for regular users
-                    <div></div>
+                    // Adopter (regular user) navigation
+                    <div className="flex items-center space-x-6">
+                        <Link to="/browsepets" className="text-white font-semibold hover:text-blue-100">
+                            All Pets
+                        </Link>
+                        <Link to="/profile" className="text-white font-semibold hover:text-blue-100">
+                            Profile
+                        </Link>
+                        <button
+                            onClick={handleLogout}
+                            className="bg-white text-blue-400 px-4 py-2 rounded-full font-semibold hover:bg-blue-100"
+                        >
+                            Logout
+                        </button>
+                    </div>
                 )}
             </div>
         </nav>

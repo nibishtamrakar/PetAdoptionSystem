@@ -31,7 +31,7 @@ const PetCard = ({ pet }) => {
           </div>
 
           <div className="text-sm md:text-base leading-snug mb-1">
-            Sex: {pet.sex}
+            Sex: {pet.sex === 'M' ? 'Male' : pet.sex === 'F' ? 'Female' : pet.sex}
           </div>
 
           <div className="text-sm md:text-base leading-snug mb-1">

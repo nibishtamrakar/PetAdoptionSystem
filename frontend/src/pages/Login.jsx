@@ -8,8 +8,10 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (loading) return; // prevent double-clicks
     setError(null);
 
     if (!email || !password) {
@@ -18,13 +20,13 @@ const Login = () => {
     }
 
     try {
+      setLoading(true);
+
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // Uncomment this if your backend uses cookies for auth:
-        // credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
@@ -37,7 +39,9 @@ const Login = () => {
 
       localStorage.setItem("user", JSON.stringify(data));
       localStorage.setItem("token", data.access_token);
-      if (data.role === 'STAFF' || data.role === 'ADMIN') {
+      if (data.role === 'ADMIN') {
+        navigate("/admin/dashboard");
+      } else if (data.role === 'STAFF') {
         navigate("/staff/dashboard");
       } else {
         navigate("/browsepets");
@@ -45,6 +49,8 @@ const Login = () => {
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,10 +87,13 @@ const Login = () => {
         />
 
         <button
-          className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-4 px-20 rounded-full shadow-lg text-lg transition-all duration-200"
+          className={`bg-blue-400 hover:bg-blue-500 text-white font-bold py-4 px-20 rounded-full shadow-lg text-lg transition-all duration-200 ${
+            loading ? "opacity-60 cursor-not-allowed" : ""
+          }`}
           onClick={handleLogin}
+          disabled={loading}
         >
-          Sign In
+          {loading ? "Signing in..." : "Sign In"}
         </button>
       </div>
     </div>

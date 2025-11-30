@@ -5,17 +5,29 @@ const StaffPetCard = ({ pet, onEdit }) => {
   return (
     <div className="relative">
       <Link to={`/pet/${pet.petID}`} className="block">
-        <div className="bg-blue-200 rounded-3xl shadow-xl flex flex-col overflow-hidden min-h-[430px] md:min-h-[460px] border-[#5699C9] border-2 hover:scale-[1.02] hover:shadow-2xl transition-transform duration-200 cursor-pointer">
+        <div className={`rounded-3xl shadow-xl flex flex-col overflow-hidden min-h-[430px] md:min-h-[460px] border-2 hover:scale-[1.02] hover:shadow-2xl transition-transform duration-200 cursor-pointer ${
+          pet.status === "ADOPTED" 
+            ? "bg-gray-300 border-gray-400" 
+            : "bg-blue-200 border-[#5699C9]"
+        }`}>
 
           {/* top image */}
-          <div className="flex flex-col items-center justify-center py-10 bg-blue-300">
-            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-blue-100 flex items-center justify-center">
+          <div className={`flex flex-col items-center justify-center py-10 ${
+            pet.status === "ADOPTED" ? "bg-gray-400" : "bg-blue-300"
+          }`}>
+            <div className={`w-24 h-24 md:w-28 md:h-28 rounded-full flex items-center justify-center ${
+              pet.status === "ADOPTED" ? "bg-gray-200" : "bg-blue-100"
+            }`}>
               {/* placeholder for future image */}
             </div>
           </div>
 
           {/* info */}
-          <div className="border-t border-white px-6 py-5 text-center text-white bg-[#5699C9] rounded-b-3xl flex flex-col flex-1">
+          <div className={`border-t px-6 py-5 text-center rounded-b-3xl flex flex-col flex-1 ${
+            pet.status === "ADOPTED" 
+              ? "text-gray-600 bg-gray-500 border-gray-400" 
+              : "text-white bg-[#5699C9] border-white"
+          }`}>
 
             {/* name */}
             <div className="text-3xl font-semibold mb-3">
@@ -32,7 +44,7 @@ const StaffPetCard = ({ pet, onEdit }) => {
             </div>
 
             <div className="text-sm md:text-base leading-snug mb-1">
-              Sex: {pet.sex}
+              Sex: {pet.sex === 'M' ? 'Male' : pet.sex === 'F' ? 'Female' : pet.sex}
             </div>
 
             <div className="text-sm md:text-base leading-snug mb-1">

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import StaffPetCard from "../components/StaffPetCard";
 import { API_BASE_URL } from "../config";
 
 const StaffDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -20,22 +21,30 @@ const StaffDashboard = () => {
     }
   }, [navigate]);
 
-  const [careLogs, setCareLogs] = useState([]);
-  const [appointments, setAppointments] = useState([]);
   const [pets, setPets] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [careLogs, setCareLogs] = useState([]); // Add back care logs
+  const [recentCareLogs, setRecentCareLogs] = useState([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [allCareLogs, setAllCareLogs] = useState([]);
+  const [pastAppointments, setPastAppointments] = useState([]);
+  const [adoptionRequests, setAdoptionRequests] = useState([]);
+  const [appointments, setAppointments] = useState([]); // For appointment management
+  const [user, setUser] = useState(null);
+  const [shelterName, setShelterName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
+  const [activeTab, setActiveTab] = useState("home"); // home, history, requests
   const [showAddCareLog, setShowAddCareLog] = useState(false);
   const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [showAddPet, setShowAddPet] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
-
   const [newCareLog, setNewCareLog] = useState({
     petID: "",
     careType: "",
     notes: ""
   });
-
   const [newAppointment, setNewAppointment] = useState({
     petID: "",
     adopterID: "",
@@ -43,60 +52,31 @@ const StaffDashboard = () => {
     appointmentTime: "",
     appointmentType: ""
   });
+  const [newPet, setNewPet] = useState({
+    name: "",
+    species: "",
+    breed: "",
+    sex: "Male",
+    dob: "",
+    status: "Available"
+  });
+
+  // Set active tab from URL parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['home', 'history', 'requests'].includes(tab)) {
+      setActiveTab(tab);
+    } else {
+      // If no tab parameter, default to home
+      setActiveTab('home');
+    }
+  }, [searchParams]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     navigate("/", { replace: true });
   };
-
-  // Fetch data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setError("Not authenticated");
-          return;
-        }
-        
-        const headers = {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        };
-        
-        const [careLogsRes, appointmentsRes, petsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/staff-care-logs`, { headers }),
-          fetch(`${API_BASE_URL}/api/staff-appointments`, { headers }),
-          fetch(`${API_BASE_URL}/api/staff-pets`, { headers })
-        ]);
-
-        if (!careLogsRes.ok || !appointmentsRes.ok || !petsRes.ok) {
-          setError("Failed to load data");
-          return;
-        }
-
-        const [careLogsData, appointmentsData, petsData] = await Promise.all([
-          careLogsRes.json(),
-          appointmentsRes.json(),
-          petsRes.json()
-        ]);
-
-        setCareLogs(careLogsData);
-        setAppointments(appointmentsData);
-        setPets(petsData);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError("Network error");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
 
   const handleAddCareLog = async () => {
     try {
@@ -119,6 +99,7 @@ const StaffDashboard = () => {
 
       const data = await res.json();
       setCareLogs([data, ...careLogs]);
+      setRecentCareLogs([data, ...recentCareLogs]);
       setShowAddCareLog(false);
       setNewCareLog({ petID: "", careType: "", notes: "" });
     } catch (err) {
@@ -146,6 +127,7 @@ const StaffDashboard = () => {
       }
 
       setCareLogs(careLogs.filter(log => log.careID !== careId));
+      setRecentCareLogs(recentCareLogs.filter(log => log.careID !== careId));
     } catch (err) {
       console.error("Error deleting care log:", err);
       setError("Network error");
@@ -160,12 +142,26 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
+      // Parse the datetime-local value as local time
+      const [datePart, timePart] = newAppointment.appointmentTime.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      
+      // Create Date object in local timezone
+      const localDate = new Date(year, month - 1, day, hours, minutes);
+      
+      // Debug logging
+      console.log('Input:', newAppointment.appointmentTime);
+      console.log('Parsed:', { year, month, day, hours, minutes });
+      console.log('Local Date:', localDate);
+      console.log('ISO String:', localDate.toISOString());
+      
       const res = await fetch(`${API_BASE_URL}/api/staff-appointments`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           ...newAppointment,
-          appointmentTime: new Date(newAppointment.appointmentTime).toISOString()
+          appointmentTime: newAppointment.appointmentTime + ':00' // Add seconds
         })
       });
 
@@ -175,7 +171,9 @@ const StaffDashboard = () => {
       }
 
       const data = await res.json();
+      console.log('Response:', data);
       setAppointments([...appointments, data]);
+      setUpcomingAppointments([...upcomingAppointments, data]);
       setShowAddAppointment(false);
       setNewAppointment({
         petID: "",
@@ -198,12 +196,26 @@ const StaffDashboard = () => {
         "Authorization": `Bearer ${token}`
       };
       
+      // Parse the datetime-local value as local time
+      const [datePart, timePart] = editingAppointment.appointmentTime.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      
+      // Create Date object in local timezone
+      const localDate = new Date(year, month - 1, day, hours, minutes);
+      
+      // Debug logging
+      console.log('Input:', editingAppointment.appointmentTime);
+      console.log('Parsed:', { year, month, day, hours, minutes });
+      console.log('Local Date:', localDate);
+      console.log('ISO String:', localDate.toISOString());
+      
       const res = await fetch(`${API_BASE_URL}/api/staff-appointments/${editingAppointment.appointmentID}`, {
         method: "PUT",
         headers,
         body: JSON.stringify({
           ...editingAppointment,
-          appointmentTime: new Date(editingAppointment.appointmentTime).toISOString()
+          appointmentTime: localDate.toISOString()
         })
       });
 
@@ -213,7 +225,14 @@ const StaffDashboard = () => {
       }
 
       const data = await res.json();
+      console.log('Response:', data);
+      console.log('Response time:', data.appointmentTime);
+      console.log('Response time as Date:', new Date(data.appointmentTime));
+      console.log('Response time local:', new Date(data.appointmentTime).toLocaleTimeString());
       setAppointments(appointments.map(apt => 
+        apt.appointmentID === data.appointmentID ? data : apt
+      ));
+      setUpcomingAppointments(upcomingAppointments.map(apt => 
         apt.appointmentID === data.appointmentID ? data : apt
       ));
       setEditingAppointment(null);
@@ -242,15 +261,221 @@ const StaffDashboard = () => {
       }
 
       setAppointments(appointments.filter(apt => apt.appointmentID !== appointmentId));
+      setUpcomingAppointments(upcomingAppointments.filter(apt => apt.appointmentID !== appointmentId));
     } catch (err) {
       console.error("Error deleting appointment:", err);
       setError("Network error");
     }
   };
 
+  const handleAddPet = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/staff-pets`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(newPet)
+      });
+
+      if (!res.ok) {
+        setError("Failed to add pet");
+        return;
+      }
+
+      const data = await res.json();
+      setPets([...pets, data]);
+      setShowAddPet(false);
+      setNewPet({
+        name: "",
+        species: "",
+        breed: "",
+        sex: "Male",
+        dob: "",
+        status: "Available"
+      });
+    } catch (err) {
+      console.error("Error adding pet:", err);
+      setError("Network error");
+    }
+  };
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("Not authenticated");
+          return;
+        }
+        
+        const headers = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        };
+        
+        const storedUser = localStorage.getItem("user");
+        if (!storedUser) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        const user = JSON.parse(storedUser);
+        setUser(user);
+
+        const [petsRes, usersRes, careLogsRes, appointmentsRes, recentCareLogsRes, upcomingAppointmentsRes, allCareLogsRes, pastAppointmentsRes, adoptionRequestsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/staff-pets`, { headers }),
+          fetch(`${API_BASE_URL}/api/users`, { headers }),
+          fetch(`${API_BASE_URL}/api/staff-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/staff-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/recent-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/upcoming-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/all-care-logs`, { headers }),
+          fetch(`${API_BASE_URL}/api/past-appointments`, { headers }),
+          fetch(`${API_BASE_URL}/api/adoption-requests`, { headers })
+        ]);
+
+        if (!petsRes.ok || !usersRes.ok || !careLogsRes.ok || !appointmentsRes.ok || !recentCareLogsRes.ok || !upcomingAppointmentsRes.ok || !allCareLogsRes.ok || !pastAppointmentsRes.ok || !adoptionRequestsRes.ok) {
+          setError("Failed to load data");
+          return;
+        }
+
+        const [petsData, usersData, careLogsData, appointmentsData, recentCareLogsData, upcomingAppointmentsData, allCareLogsData, pastAppointmentsData, adoptionRequestsData] = await Promise.all([
+          petsRes.json(),
+          usersRes.json(),
+          careLogsRes.json(),
+          appointmentsRes.json(),
+          recentCareLogsRes.json(),
+          upcomingAppointmentsRes.json(),
+          allCareLogsRes.json(),
+          pastAppointmentsRes.json(),
+          adoptionRequestsRes.json()
+        ]);
+
+        setPets(petsData);
+        setUsers(usersData);
+        setCareLogs(careLogsData);
+        setAppointments(appointmentsData);
+        setRecentCareLogs(recentCareLogsData);
+        setUpcomingAppointments(upcomingAppointmentsData);
+        setAllCareLogs(allCareLogsData);
+        setPastAppointments(pastAppointmentsData);
+        setAdoptionRequests(adoptionRequestsData);
+
+        if (petsData && petsData.length > 0 && petsData[0].shelterName) {
+          setShelterName(petsData[0].shelterName);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError("Network error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [navigate]);
+
+  const handleAcceptAdoption = async (adoptionId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/accept`, {
+        method: "PUT",
+        headers
+      });
+
+      if (!res.ok) {
+        setError("Failed to accept adoption request");
+        return;
+      }
+
+      // Refresh adoption requests and pets
+      await fetchAdoptionRequests();
+      await fetchPets();
+    } catch (err) {
+      console.error("Error accepting adoption request:", err);
+      setError("Network error");
+    }
+  };
+
+  const handleRejectAdoption = async (adoptionId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests/${adoptionId}/reject`, {
+        method: "PUT",
+        headers
+      });
+
+      if (!res.ok) {
+        setError("Failed to reject adoption request");
+        return;
+      }
+
+      // Refresh adoption requests
+      await fetchAdoptionRequests();
+    } catch (err) {
+      console.error("Error rejecting adoption request:", err);
+      setError("Network error");
+    }
+  };
+
+  const fetchAdoptionRequests = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/adoption-requests`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setAdoptionRequests(data);
+      }
+    } catch (err) {
+      console.error("Error fetching adoption requests:", err);
+    }
+  };
+
+  const fetchPets = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+      
+      const res = await fetch(`${API_BASE_URL}/api/staff-pets`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPets(data);
+      }
+    } catch (err) {
+      console.error("Error fetching pets:", err);
+    }
+  };
+
   const handleEditPet = (pet) => {
-    // TODO: Open edit modal or navigate to edit page
-    console.log("Edit pet:", pet);
+    // For now, navigate to pet details page
+    // Could be enhanced to open edit modal in the future
+    navigate(`/pet/${pet.petID}`);
   };
 
   if (loading) {
@@ -276,6 +501,12 @@ const StaffDashboard = () => {
           <Link to="/staff/dashboard" className="text-white font-semibold hover:text-blue-100">
             Home
           </Link>
+          <Link to="/staff/dashboard?tab=history" className="text-white font-semibold hover:text-blue-100">
+            History
+          </Link>
+          <Link to="/staff/dashboard?tab=requests" className="text-white font-semibold hover:text-blue-100">
+            Requests
+          </Link>
           <Link to="/staff/profile" className="text-white font-semibold hover:text-blue-100">
             Profile
           </Link>
@@ -289,250 +520,632 @@ const StaffDashboard = () => {
       </Navbar>
 
       <div className="pt-20 px-6 pb-6">
-        <h1 className="text-4xl font-bold text-blue-600 mb-8">Staff Dashboard</h1>
-
-        {/* Care Logs Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-800">Care Logs</h2>
-            <button
-              onClick={() => setShowAddCareLog(true)}
-              className="bg-blue-400 hover:bg-blue-500 text-white px-4 py-2 rounded-full font-semibold"
-            >
-              Add Care Log
-            </button>
+        {/* Only show original header on Home tab */}
+        {activeTab === "home" && (
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-blue-600 mb-2">Staff Dashboard</h1>
+            {user && (
+              <h2 className="text-xl text-gray-600">
+                Welcome, {user.name} - Shelter: {shelterName || 'Loading...'}
+              </h2>
+            )}
           </div>
+        )}
 
-          {showAddCareLog && (
-            <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <h3 className="text-lg font-semibold mb-3">New Care Log</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <select
-                  value={newCareLog.petID}
-                  onChange={(e) => setNewCareLog({...newCareLog, petID: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                >
-                  <option value="">Select Pet</option>
-                  {pets.map(pet => (
-                    <option key={pet.petID} value={pet.petID}>{pet.name}</option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  placeholder="Care Type"
-                  value={newCareLog.careType}
-                  onChange={(e) => setNewCareLog({...newCareLog, careType: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                />
-                <textarea
-                  placeholder="Notes"
-                  value={newCareLog.notes}
-                  onChange={(e) => setNewCareLog({...newCareLog, notes: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2 col-span-2"
-                  rows="3"
-                />
-              </div>
-              <div className="mt-3 flex space-x-2">
+        {/* Tab Content */}
+        {activeTab === "home" && (
+          <div>
+            {/* Recent Care Logs Section */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800">Recent Care Logs</h2>
                 <button
-                  onClick={handleAddCareLog}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-semibold"
+                  onClick={() => setShowAddCareLog(true)}
+                  className="bg-blue-400 hover:bg-blue-500 text-white px-4 py-2 rounded-full font-semibold"
                 >
-                  Save
-                </button>
-                <button
-                  onClick={() => setShowAddCareLog(false)}
-                  className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full font-semibold"
-                >
-                  Cancel
+                  Add Care Log
                 </button>
               </div>
-            </div>
-          )}
 
-          <div className="space-y-3">
-            {careLogs.map(log => (
-              <div key={log.careID} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold">{log.careType}</p>
-                    <p className="text-sm text-gray-600">{new Date(log.careDate).toLocaleDateString()}</p>
-                    {log.notes && <p className="text-gray-700 mt-1">{log.notes}</p>}
+              {showAddCareLog && (
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <h3 className="text-lg font-semibold mb-3">New Care Log</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <select
+                      value={newCareLog.petID}
+                      onChange={(e) => setNewCareLog({...newCareLog, petID: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2"
+                    >
+                      <option value="">Select Pet</option>
+                      {pets.map(pet => (
+                        <option key={pet.petID} value={pet.petID}>{pet.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Care Type"
+                      value={newCareLog.careType}
+                      onChange={(e) => setNewCareLog({...newCareLog, careType: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2"
+                    />
+                    <textarea
+                      placeholder="Notes"
+                      value={newCareLog.notes}
+                      onChange={(e) => setNewCareLog({...newCareLog, notes: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2 col-span-2"
+                      rows="3"
+                    />
                   </div>
-                  <button
-                    onClick={() => handleDeleteCareLog(log.careID)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="mt-3 flex space-x-2">
+                    <button
+                      onClick={handleAddCareLog}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-semibold"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setShowAddCareLog(false)}
+                      className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              )}
 
-        {/* Appointments Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-800">Appointments</h2>
-            <button
-              onClick={() => setShowAddAppointment(true)}
-              className="bg-blue-400 hover:bg-blue-500 text-white px-4 py-2 rounded-full font-semibold"
-            >
-              Add Appointment
-            </button>
-          </div>
-
-          {showAddAppointment && (
-            <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <h3 className="text-lg font-semibold mb-3">New Appointment</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <select
-                  value={newAppointment.petID}
-                  onChange={(e) => setNewAppointment({...newAppointment, petID: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                >
-                  <option value="">Select Pet</option>
-                  {pets.map(pet => (
-                    <option key={pet.petID} value={pet.petID}>{pet.name}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Adopter ID"
-                  value={newAppointment.adopterID}
-                  onChange={(e) => setNewAppointment({...newAppointment, adopterID: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                />
-                <input
-                  type="datetime-local"
-                  value={newAppointment.appointmentTime}
-                  onChange={(e) => setNewAppointment({...newAppointment, appointmentTime: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                />
-                <select
-                  value={newAppointment.appointmentType}
-                  onChange={(e) => setNewAppointment({...newAppointment, appointmentType: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                >
-                  <option value="">Select Type</option>
-                  <option value="VISIT">Visit</option>
-                  <option value="MEET&GREET">Meet & Greet</option>
-                  <option value="VET">Vet</option>
-                </select>
-              </div>
-              <div className="mt-3 flex space-x-2">
-                <button
-                  onClick={handleAddAppointment}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-semibold"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => setShowAddAppointment(false)}
-                  className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full font-semibold"
-                >
-                  Cancel
-                </button>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Care Type</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Notes</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentCareLogs.map((log) => {
+                      const pet = pets.find((p) => p.petID === log.petID);
+                      return (
+                        <tr key={log.careID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <span className="text-blue-600 font-medium">
+                              {pet ? pet.name : 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-3 border-b font-medium">{log.careType}</td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(log.careDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {log.notes || '-'}
+                          </td>
+                          <td className="p-3 border-b">
+                            <button
+                              onClick={() => handleDeleteCareLog(log.careID)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {recentCareLogs.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No recent care logs found
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          {editingAppointment && (
-            <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <h3 className="text-lg font-semibold mb-3">Edit Appointment</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <select
-                  value={editingAppointment.petID}
-                  onChange={(e) => setEditingAppointment({...editingAppointment, petID: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
+            {/* Upcoming Appointments Section */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800">Upcoming Appointments</h2>
+                <button
+                  onClick={() => setShowAddAppointment(true)}
+                  className="bg-blue-400 hover:bg-blue-500 text-white px-4 py-2 rounded-full font-semibold"
                 >
-                  <option value="">Select Pet</option>
-                  {pets.map(pet => (
-                    <option key={pet.petID} value={pet.petID}>{pet.name}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Adopter ID"
-                  value={editingAppointment.adopterID}
-                  onChange={(e) => setEditingAppointment({...editingAppointment, adopterID: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                />
-                <input
-                  type="datetime-local"
-                  value={editingAppointment.appointmentTime}
-                  onChange={(e) => setEditingAppointment({...editingAppointment, appointmentTime: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                />
-                <select
-                  value={editingAppointment.appointmentType}
-                  onChange={(e) => setEditingAppointment({...editingAppointment, appointmentType: e.target.value})}
-                  className="border border-blue-300 rounded-lg p-2"
-                >
-                  <option value="">Select Type</option>
-                  <option value="VISIT">Visit</option>
-                  <option value="MEET&GREET">Meet & Greet</option>
-                  <option value="VET">Vet</option>
-                </select>
+                  Add Appointment
+                </button>
               </div>
-              <div className="mt-3 flex space-x-2">
-                <button
-                  onClick={handleUpdateAppointment}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-semibold"
-                >
-                  Update
-                </button>
-                <button
-                  onClick={() => setEditingAppointment(null)}
-                  className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full font-semibold"
-                >
-                  Cancel
-                </button>
+
+              {showAddAppointment && (
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <h3 className="text-lg font-semibold mb-3">New Appointment</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <select
+                      value={newAppointment.petID}
+                      onChange={(e) => setNewAppointment({...newAppointment, petID: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2"
+                    >
+                      <option value="">Select Pet</option>
+                      {pets.map(pet => (
+                        <option key={pet.petID} value={pet.petID}>{pet.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={newAppointment.adopterID}
+                      onChange={(e) => setNewAppointment({...newAppointment, adopterID: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2"
+                    >
+                      <option value="">Select Visitor</option>
+                      {users.map(user => (
+                        <option key={user.userID} value={user.userID}>{user.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={newAppointment.appointmentTime}
+                      onChange={(e) => setNewAppointment({...newAppointment, appointmentTime: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2"
+                    />
+                    <select
+                      value={newAppointment.appointmentType}
+                      onChange={(e) => setNewAppointment({...newAppointment, appointmentType: e.target.value})}
+                      className="border border-blue-300 rounded-lg p-2"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="VISIT">Visit</option>
+                      <option value="MEET&GREET">Meet & Greet</option>
+                      <option value="VET">Vet</option>
+                    </select>
+                  </div>
+                  <div className="mt-3 flex space-x-2">
+                    <button
+                      onClick={handleAddAppointment}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-semibold"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setShowAddAppointment(false)}
+                      className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {editingAppointment && (
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <h3 className="text-lg font-semibold mb-3">Reschedule Appointment</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        New Date & Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={editingAppointment.appointmentTime}
+                        onChange={(e) => setEditingAppointment({...editingAppointment, appointmentTime: e.target.value})}
+                        className="border border-blue-300 rounded-lg p-2 w-full"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex space-x-2">
+                    <button
+                      onClick={handleUpdateAppointment}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-semibold"
+                    >
+                      Reschedule
+                    </button>
+                    <button
+                      onClick={() => setEditingAppointment(null)}
+                      className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Visitor</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Type</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Date & Time</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {upcomingAppointments.map((apt) => {
+                      const pet = pets.find((p) => p.petID === apt.petID);
+                      const adopter = users.find((u) => u.userID === apt.adopterID);
+                      return (
+                        <tr key={apt.appointmentID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <span className="text-blue-600 font-medium">
+                              {pet ? pet.name : 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {adopter ? adopter.name : 'Unknown Visitor'}
+                          </td>
+                          <td className="p-3 border-b font-medium">{apt.appointmentType}</td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(apt.appointmentTime + 'Z').toLocaleDateString()} at{' '}
+                            {new Date(apt.appointmentTime + 'Z').toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="p-3 border-b">
+                            <div className="flex space-x-3">
+                              <button
+                                onClick={() => setEditingAppointment(apt)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                              >
+                                Reschedule
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAppointment(apt.appointmentID)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {upcomingAppointments.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No upcoming appointments found
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          <div className="space-y-3">
-            {appointments.map(apt => (
-              <div key={apt.appointmentID} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold">{apt.appointmentType}</p>
-                    <p className="text-sm text-gray-600">
-                      {new Date(apt.appointmentTime).toLocaleDateString()} at {new Date(apt.appointmentTime).toLocaleTimeString()}
-                    </p>
-                    <p className="text-sm text-gray-600">Pet ID: {apt.petID}</p>
-                    <p className="text-sm text-gray-600">Adopter ID: {apt.adopterID}</p>
+            {/* Pets Section */}
+            <div className="mb-8 mt-12">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800">Your Shelter Pets</h2>
+                <button
+                  onClick={() => setShowAddPet(true)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full font-semibold"
+                >
+                  Add Pet
+                </button>
+              </div>
+
+              {/* Add Pet Form */}
+              {showAddPet && (
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <h3 className="text-lg font-semibold mb-3">Add New Pet</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <input
+                      type="text"
+                      placeholder="Pet Name"
+                      value={newPet.name}
+                      onChange={(e) => setNewPet({...newPet, name: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Species"
+                      value={newPet.species}
+                      onChange={(e) => setNewPet({...newPet, species: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Breed"
+                      value={newPet.breed}
+                      onChange={(e) => setNewPet({...newPet, breed: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
+                    <select
+                      value={newPet.sex}
+                      onChange={(e) => setNewPet({...newPet, sex: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                    <input
+                      type="date"
+                      placeholder="Date of Birth"
+                      value={newPet.dob}
+                      onChange={(e) => setNewPet({...newPet, dob: e.target.value})}
+                      className="border rounded px-3 py-2"
+                    />
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setEditingAppointment(apt)}
-                      className="text-blue-500 hover:text-blue-700"
+                      onClick={handleAddPet}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold"
                     >
-                      Edit
+                      Add Pet
                     </button>
                     <button
-                      onClick={() => handleDeleteAppointment(apt.appointmentID)}
-                      className="text-red-500 hover:text-red-700"
+                      onClick={() => setShowAddPet(false)}
+                      className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded font-semibold"
                     >
-                      Delete
+                      Cancel
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              )}
 
-        {/* Pets Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Pets in Shelter</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pets.map(pet => (
-              <StaffPetCard key={pet.petID} pet={pet} onEdit={handleEditPet} />
-            ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {pets.map((pet) => (
+                  <StaffPetCard key={pet.petID} pet={pet} onEdit={handleEditPet} />
+                ))}
+              </div>
+              {pets.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No pets found in your shelter
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === "history" && (
+          <div>
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-blue-600 mb-2">{shelterName || 'Shelter'} - Shelter History</h1>
+              <h2 className="text-xl text-gray-600">
+                All care logs and previous appointments at {shelterName || 'the shelter'}
+              </h2>
+            </div>
+            
+            {/* All Care Logs Section */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">All Care Logs</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Care Type</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Notes</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allCareLogs.map((log) => {
+                      const pet = pets.find((p) => p.petID === log.petID);
+                      return (
+                        <tr key={log.careID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <span className="text-blue-600 font-medium">
+                              {pet ? pet.name : 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-3 border-b font-medium">{log.careType}</td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(log.careDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {log.notes || '-'}
+                          </td>
+                          <td className="p-3 border-b">
+                            <button
+                              onClick={() => handleDeleteCareLog(log.careID)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {allCareLogs.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No care logs found
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Past Appointments Section */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Past Appointments</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Visitor</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Type</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Date & Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pastAppointments.map((apt) => {
+                      const pet = pets.find((p) => p.petID === apt.petID);
+                      const adopter = users.find((u) => u.userID === apt.adopterID);
+                      return (
+                        <tr key={apt.appointmentID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <span className="text-blue-600 font-medium">
+                              {pet ? pet.name : 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {adopter ? adopter.name : 'Unknown Visitor'}
+                          </td>
+                          <td className="p-3 border-b font-medium">{apt.appointmentType}</td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(apt.appointmentTime + 'Z').toLocaleDateString()} at{' '}
+                            {new Date(apt.appointmentTime + 'Z').toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {pastAppointments.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No past appointments found
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "requests" && (
+          <div>
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-blue-600 mb-2">{shelterName || 'Shelter'} - Adoption Requests</h1>
+              <h2 className="text-xl text-gray-600">
+                Manage adoption requests for your shelter
+              </h2>
+            </div>
+            
+            {/* Pending Adoption Requests */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Pending Adoption Requests</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Adopter Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Application Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Related Appointments</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adoptionRequests
+                      .filter(request => request.status === 'APPLIED')
+                      .map((request) => {
+                      const pet = pets.find((p) => p.petID === request.petID);
+                      const adopter = users.find((u) => u.userID === request.adopterID);
+                      const relatedAppointments = appointments.filter(
+                        apt => apt.petID === request.petID && apt.adopterID === request.adopterID
+                      );
+                      return (
+                        <tr key={request.adoptionID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <button
+                              onClick={() => pet && navigate(`/pet/${pet.petID}`)}
+                              className="text-blue-600 font-medium hover:underline"
+                            >
+                              {pet ? pet.name : 'Unknown'}
+                            </button>
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {adopter ? adopter.name : 'Unknown Adopter'}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(request.applicationDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 border-b">
+                            {relatedAppointments.length > 0 ? (
+                              <div className="text-sm">
+                                {relatedAppointments.map((apt) => (
+                                  <div key={apt.appointmentID}>
+                                    {new Date(apt.appointmentTime).toLocaleDateString()} - {apt.appointmentType}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">No appointments</span>
+                            )}
+                          </td>
+                          <td className="p-3 border-b">
+                            <div className="flex space-x-3">
+                              <button
+                                onClick={() => handleAcceptAdoption(request.adoptionID)}
+                                className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleRejectAdoption(request.adoptionID)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-medium text-sm"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Past Adoption Requests */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Past Adoption Requests</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Pet Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Adopter Name</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Application Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Approval Date</th>
+                      <th className="text-left p-3 border-b font-semibold text-gray-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adoptionRequests
+                      .filter(request => request.status !== 'APPLIED')
+                      .sort((a, b) => new Date(b.approvalDate || b.applicationDate) - new Date(a.approvalDate || a.applicationDate))
+                      .map((request) => {
+                      const pet = pets.find((p) => p.petID === request.petID);
+                      const adopter = users.find((u) => u.userID === request.adopterID);
+                      return (
+                        <tr key={request.adoptionID} className="hover:bg-gray-50">
+                          <td className="p-3 border-b">
+                            <button
+                              onClick={() => pet && navigate(`/pet/${pet.petID}`)}
+                              className="text-blue-600 font-medium hover:underline"
+                            >
+                              {pet ? pet.name : 'Unknown'}
+                            </button>
+                          </td>
+                          <td className="p-3 border-b text-gray-700">
+                            {adopter ? adopter.name : 'Unknown Adopter'}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {new Date(request.applicationDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 border-b text-gray-600">
+                            {request.approvalDate ? new Date(request.approvalDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3 border-b">
+                            <span className={`px-2 py-1 rounded text-sm font-medium ${
+                              request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                              request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {request.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

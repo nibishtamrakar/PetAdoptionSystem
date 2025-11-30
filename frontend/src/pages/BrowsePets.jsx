@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import PetCard from "../components/PetCard";
 import { API_BASE_URL } from "../config";
+import Filters from "../components/Filters";
 
 const BrowsePets = () => {
   const navigate = useNavigate();
@@ -24,47 +25,47 @@ const BrowsePets = () => {
   const PAGE_SIZE = 9;
 
   const handleLogout = () => {
-  localStorage.removeItem("user");
-  localStorage.removeItem("token");
-  navigate("/login", { replace: true });
-};
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    navigate("/login", { replace: true });
+  };
 
- const fetchPets = async () => {
-  try {
-    setLoading(true);
-    setError(null);
+  const fetchPets = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    const params = new URLSearchParams();
-    if (locationQuery) params.append("q_location", locationQuery);
-    if (animalQuery) params.append("q_animal", animalQuery);
+      const params = new URLSearchParams();
+      if (locationQuery) params.append("q_location", locationQuery);
+      if (animalQuery) params.append("q_animal", animalQuery);
 
-    const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
-    const res = await fetch(`${API_BASE_URL}/api/pets?${params.toString()}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
+      const res = await fetch(`${API_BASE_URL}/api/pets?${params.toString()}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
-    if (!res.ok) {
-      setError("Failed to load pets");
-      return;
+      if (!res.ok) {
+        setError("Failed to load pets");
+        return;
+      }
+
+      const data = await res.json();
+      setPets(data);
+    } catch (err) {
+      console.error("Fetch pets error:", err);
+      setError("Network error");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const data = await res.json();
-    setPets(data);
-  } catch (err) {
-    console.error("Fetch pets error:", err);
-    setError("Network error");
-  } finally {
-    setLoading(false);
-  }
-};
-
- useEffect(() => {
-  fetchPets();
-}, [locationQuery, animalQuery]);
+  useEffect(() => {
+    fetchPets();
+  }, [locationQuery, animalQuery]);
 
   // const totalPages = Math.ceil(pets.length / PAGE_SIZE) || 1;
   // const startIndex = (currentPage - 1) * PAGE_SIZE;
@@ -121,7 +122,6 @@ const BrowsePets = () => {
         </div>
       </Navbar>
 
-      {/* push content below navbar */}
       <div className="pt-16">
         {/* FILTER BAR */}
         <section className="bg-[#5699C9] py-10">
@@ -156,9 +156,7 @@ const BrowsePets = () => {
                     className="w-full md:w-80 bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <p className="text-white mt-2 text-sm">
-                  Search by Animal
-                </p>
+                <p className="text-white mt-2 text-sm">Search by Animal</p>
               </div>
             </div>
           </div>
@@ -167,17 +165,9 @@ const BrowsePets = () => {
         {/* CARDS GRID */}
 
         <section className="py-10">
-          <div className="flex justify-center gap-4 mb-8">
-            <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
-              Sex
-            </button>
-            <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
-              Age
-            </button>
-            <button className="px-8 py-2 rounded-full bg-blue-300 text-white shadow">
-              Size
-            </button>
-          </div>
+          {/* <div className="flex justify-center gap-4 mb-8">
+            <Filters />
+          </div> */}
 
         {/* appointment testing */}
         {/* <section className="py-10">

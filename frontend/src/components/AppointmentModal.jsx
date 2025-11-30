@@ -3,23 +3,29 @@ import React, { useState } from "react";
 import { API_BASE_URL } from "../config";
 
 const AppointmentModal = ({ open, onClose, pet }) => {
-  // Read currently logged-in user from localStorage
-  const storedUser = typeof window !== "undefined"
-    ? localStorage.getItem("user")
-    : null;
-  const user = storedUser ? JSON.parse(storedUser) : null;
-  const adopterID = user?.userID; // 👈 this is what goes to the backend
+  // Safely read user from localStorage
+  let user = null;
+  if (typeof window !== "undefined") {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        user = JSON.parse(storedUser);
+      } catch (e) {
+        console.error("Failed to parse user from localStorage:", e);
+      }
+    }
+  }
+  const adopterID = user?.userID;
 
   const [form, setForm] = useState({
-    petID: "",
-    shelterID: "",
     appointmentTime: "",
     appointmentType: "",
   });
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!open) return null;
+  // Don't render until modal is open AND we have a pet
+  if (!open || !pet) return null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,22 +49,38 @@ const AppointmentModal = ({ open, onClose, pet }) => {
       const payload = {
         petID: Number(pet.petID),
         shelterID: Number(pet.shelterID),
-        appointmentTime: form.appointmentTime,
+        appointmentTime: form.appointmentTime,  // "YYYY-MM-DDTHH:mm"
         appointmentType: form.appointmentType,
       };
+
+      // console.log("Appointment payload:", payload);
 
       const res = await fetch(`${API_BASE_URL}/api/appointments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        const detail = errBody.detail || "Failed to create appointment";
+        const text = await res.text();
+        console.error("Appointment error:", res.status, text);
+
+        let detail = "Failed to create appointment";
+        try {
+          const errBody = JSON.parse(text);
+          if (errBody.detail) {
+            detail =
+              typeof errBody.detail === "string"
+                ? errBody.detail
+                : JSON.stringify(errBody.detail);
+          }
+        } catch {
+          // not JSON, keep default
+        }
+
         throw new Error(detail);
       }
 
@@ -71,8 +93,6 @@ const AppointmentModal = ({ open, onClose, pet }) => {
 
       setTimeout(() => {
         setForm({
-          petID: "",
-          shelterID: "",
           appointmentTime: "",
           appointmentType: "",
         });
@@ -93,12 +113,14 @@ const AppointmentModal = ({ open, onClose, pet }) => {
     }
   };
 
+  const petName = pet.name || "this pet";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+      <div className="bg-white text-gray-900 rounded-lg shadow-lg max-w-md w-full p-6 relative">
         <button
           onClick={onClose}
           className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-xl"
@@ -106,47 +128,11 @@ const AppointmentModal = ({ open, onClose, pet }) => {
           &times;
         </button>
 
-        <h2 className="text-xl font-semibold mb-4">Schedule Appointment for {pet.name}</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          Schedule Appointment for {petName}
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-          {/* <div>
-            <label
-              className="block text-sm font-medium mb-1"
-              htmlFor="petID"
-            >
-              Pet ID
-            </label>
-            <input
-              id="petID"
-              name="petID"
-              type="number"
-              min="1"
-              value={form.petID}
-              onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
-              required
-            />
-          </div> */}
-
-          {/* <div>
-            <label
-              className="block text-sm font-medium mb-1"
-              htmlFor="shelterID"
-            >
-              Shelter ID
-            </label>
-            <input
-              id="shelterID"
-              name="shelterID"
-              type="number"
-              min="1"
-              value={form.shelterID}
-              onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
-              required
-            />
-          </div> */}
-
           <div>
             <label
               className="block text-sm font-medium mb-1"

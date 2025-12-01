@@ -25,24 +25,49 @@ def get_db():
 def list_pets(
     q_location: Optional[str] = None,   # search by shelter/address/city
     q_animal: Optional[str] = None,     # search by species/breed
+    available_only:bool = True,
     db: Session = Depends(get_db),
 ):
     """
     List available pets from vw_available_pets view.
     Supports filtering by location (shelterName/address) and animal (species/breed).
     """
-    
-    sql = "SELECT * FROM vw_available_pets WHERE 1=1"
+    if available_only:
+        sql = "SELECT * FROM vw_available_pets WHERE 1=1"
+    else:
+        sql = """
+            SELECT 
+                p.petID,
+                p.name,
+                p.species,
+                p.breed,
+                p.sex,
+                p.dob,
+                p.status,
+                p.intakeDate,
+                p.shelterID,
+                s.name AS shelterName,
+                s.address AS shelterAddress
+            FROM Pet p
+            INNER JOIN Shelter s ON p.shelterID = s.shelterID
+            WHERE 1=1
+        """
     params = {}
 
     # ---- location search: shelter name OR address ----
     if q_location:
-        sql += " AND (shelterName LIKE :loc OR shelterAddress LIKE :loc)"
+        if available_only:
+            sql += " AND (shelterName LIKE :loc OR shelterAddress LIKE :loc)"
+        else:
+             sql += " AND (s.name LIKE :loc OR s.address LIKE :loc)"
         params["loc"] = f"%{q_location}%"
 
     # ---- animal search: species OR breed ----
     if q_animal:
-        sql += " AND (species LIKE :ani OR breed LIKE :ani)"
+        if available_only:
+            sql += " AND (species LIKE :ani OR breed LIKE :ani)"
+        else:
+            sql += " AND (p.species LIKE :ani OR p.breed LIKE :ani)"
         params["ani"] = f"%{q_animal}%"
 
     rows = db.execute(text(sql), params).mappings().all()

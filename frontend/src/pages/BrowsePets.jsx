@@ -21,8 +21,9 @@ const BrowsePets = () => {
 
   const [locationQuery, setLocationQuery] = useState("");
   const [animalQuery, setAnimalQuery] = useState("");
+  const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 9;
+  const PAGE_SIZE=20;
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -38,6 +39,7 @@ const BrowsePets = () => {
       const params = new URLSearchParams();
       if (locationQuery) params.append("q_location", locationQuery);
       if (animalQuery) params.append("q_animal", animalQuery);
+      params.append("available_only", showOnlyAvailable);  
 
       const token = localStorage.getItem("token");
 
@@ -61,7 +63,7 @@ const BrowsePets = () => {
     } finally {
       setLoading(false);
     }
-  }, [locationQuery, animalQuery]);
+  }, [locationQuery, animalQuery,showOnlyAvailable]);
 
   useEffect(() => {
     fetchPets();
@@ -124,43 +126,103 @@ const BrowsePets = () => {
 
       <div className="pt-16">
         {/* FILTER BAR */}
-        <section className="bg-[#5699C9] py-10">
-          <div className="max-w-5xl mx-auto flex flex-col gap-8 px-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="flex flex-col items-center w-full">
-                <input
-                  type="text"
-                  placeholder="Search by shelter, address, or city"
-                  value={locationQuery}
-                  onChange={(e) => {
-                    setLocationQuery(e.target.value);
-                    setCurrentPage(1); // reset to first page when searching
-                  }}
-                  className="w-full md:w-80 bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-white mt-2 text-sm">
-                  Search by Shelter Location
-                </p>
-              </div>
+<section className="bg-[#5699C9] py-10">
+  <div className="max-w-6xl mx-auto px-4">
+    <div className="flex flex-col lg:flex-row items-center gap-6">
+      
+      {/* Search 1: Shelter */}
+      <div className="flex flex-col items-center flex-1">
+        <input
+          type="text"
+          placeholder="Search by shelter, address, or city"
+          value={locationQuery}
+          onChange={(e) => {
+            setLocationQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="w-full bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-white mt-2 text-sm">Search by Shelter Location</p>
+      </div>
 
-              <div className="flex flex-col items-center">
-                <div className="w-full md:w-80 bg-white rounded-full flex items-center shadow-md overflow-hidden">
-                  <input
-                    type="text"
-                    placeholder="Search by animal species or breed"
-                    value={animalQuery}
-                    onChange={(e) => {
-                      setAnimalQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full md:w-80 bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <p className="text-white mt-2 text-sm">Search by Animal</p>
-              </div>
-            </div>
-          </div>
-        </section>
+      {/* Search 2: Animal */}
+      <div className="flex flex-col items-center flex-1">
+        <input
+          type="text"
+          placeholder="Search by animal species or breed"
+          value={animalQuery}
+          onChange={(e) => {
+            setAnimalQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="w-full bg-white text-gray-800 rounded-full py-3 px-6 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-white mt-2 text-sm">Search by Animal</p>
+      </div>
+
+      {/* Toggle: On the Right */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        minWidth: '140px'
+      }}>
+        <label style={{
+          position: 'relative',
+          display: 'inline-block',
+          width: '60px',
+          height: '34px',
+          cursor: 'pointer'
+        }}>
+          <input 
+            type="checkbox" 
+            checked={showOnlyAvailable}
+            onChange={() => setShowOnlyAvailable(!showOnlyAvailable)}
+            style={{
+              opacity: 0,
+              width: 0,
+              height: 0
+            }}
+          />
+          <span style={{
+            position: 'absolute',
+            cursor: 'pointer',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: showOnlyAvailable ? '#2196F3' : '#ccc',
+            transition: 'background-color 0.4s ease',
+            borderRadius: '34px'
+          }}>
+            <span style={{
+              position: 'absolute',
+              height: '26px',
+              width: '26px',
+              left: showOnlyAvailable ? '30px' : '4px',
+              bottom: '4px',
+              backgroundColor: 'white',
+              transition: 'left 0.4s ease',
+              borderRadius: '50%'
+            }}
+            />
+          </span>
+        </label>
+        <span style={{
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '13px',
+          textAlign: 'center',
+          whiteSpace: 'nowrap'
+        }}>
+          {showOnlyAvailable ? "Available" : "All Pets"}
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
 
         {/* CARDS GRID */}
 

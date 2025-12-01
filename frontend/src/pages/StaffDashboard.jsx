@@ -17,7 +17,7 @@ const StaffDashboard = () => {
 
     const user = JSON.parse(storedUser);
     if (!["STAFF", "ADMIN"].includes(user.role)) {
-      navigate("/homepage", { replace: true });
+      navigate("/Login", { replace: true });
     }
   }, [navigate]);
 

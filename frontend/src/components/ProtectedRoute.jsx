@@ -13,7 +13,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
     const user = JSON.parse(storedUser);
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-      navigate("/homepage", { replace: true });
+      navigate("/Login", { replace: true });
     }
   }, [navigate, allowedRoles]);
 

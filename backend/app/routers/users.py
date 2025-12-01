@@ -456,26 +456,3 @@ def schedule_appointment(payload: ScheduleAppointmentIn, db: Session = Depends(g
 
     # return appt
 
-@router.post("/adoptions", response_model=AdoptionOut, status_code=status.HTTP_201_CREATED)
-def new_adoption(
-    payload: AdoptionCreate,
-    db: Session = Depends(get_db),
-    current_user: models.UserAccount = Depends(get_current_user),
-):
-    adoption = models.Adoption(
-        petID=payload.petID,
-        adopterID=current_user.userID,
-        status="APPLIED",
-        applicationDate=datetime.now(),
-    )
-
-    db.add(adoption)
-    try:
-        db.commit()  # trigger fires here
-        db.refresh(adoption)
-    except DBAPIError as e:
-        db.rollback()
-        msg = str(getattr(e, "orig", e))
-        raise HTTPException(status_code=400, detail=msg)
-
-    return adoption

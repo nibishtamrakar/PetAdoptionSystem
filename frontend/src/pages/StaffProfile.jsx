@@ -68,7 +68,7 @@ const StaffProfile = () => {
         </div>
 
         <div style={{ marginTop: "20px" }}>
-          <Link to="/staff-dashboard" className="btn btn-primary">
+          <Link to="/staff/dashboard" className="btn btn-primary">
             Go to Staff Dashboard
           </Link>
         </div>

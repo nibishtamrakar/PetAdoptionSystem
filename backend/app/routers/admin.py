@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from app.database import SessionLocal
@@ -321,13 +321,32 @@ def remove_staff_role(user_id: int, request: Request, db: Session = Depends(get_
     
     return {"message": "Staff role removed"}
 
-@router.get("/admin/staff", response_model=List[UserOut])
+@router.get("/admin/staff")
 def get_all_staff(request: Request, db: Session = Depends(get_db)):
-    """Get all staff members"""
+    """Get all staff members with shelter information"""
     admin = get_current_admin(request, db)
     
-    staff_users = db.query(models.UserAccount).filter(models.UserAccount.role == "STAFF").all()
-    return staff_users
+    staff_records = db.query(models.Staff).options(
+        joinedload(models.Staff.user),
+        joinedload(models.Staff.shelter)
+    ).all()
+    
+    staff_list = []
+    for staff in staff_records:
+        staff_list.append({
+            "staffID": staff.staffID,
+            "userID": staff.userID,
+            "shelterID": staff.shelterID,
+            "name": staff.user.name if staff.user else "Unknown",
+            "email": staff.user.email if staff.user else "Unknown",
+            "role": staff.user.role if staff.user else "STAFF",
+            "shelter": {
+                "shelterID": staff.shelter.shelterID if staff.shelter else None,
+                "name": staff.shelter.name if staff.shelter else "Unknown"
+            }
+        })
+    
+    return staff_list
 
 # Appointment endpoints (all appointments across all shelters)
 @router.get("/admin/appointments", response_model=List[AppointmentOut])

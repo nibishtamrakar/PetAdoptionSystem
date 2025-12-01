@@ -1,6 +1,6 @@
 # 🐶 PawFect Match – Pet Adoption System
 
-Full-stack project built using **FastAPI**, **React (Vite)**, **Tailwind CSS**, and **MySQL (Aiven)**.
+Full-stack web-app project built using **FastAPI**, **React (Vite)**, **Tailwind CSS**, and **MySQL (Aiven)**.
 
 ---
 

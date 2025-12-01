@@ -1292,7 +1292,6 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody>
                     {users.map((user) => {
-                      const staffMember = staff.find(s => s.userID === user.userID);
                       return (
                         <tr key={user.userID} className="hover:bg-gray-50">
                           <td className="p-3 border-b font-medium">{user.name}</td>
@@ -1304,7 +1303,6 @@ const AdminDashboard = () => {
                               'bg-gray-100 text-gray-800'
                             }`}>
                               {user.role}
-                              {staffMember && ` - ${staffMember.shelter?.name}`}
                             </span>
                           </td>
                           <td className="p-3 border-b">
@@ -1377,11 +1375,10 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody>
                     {staff.map((staffMember) => {
-                      const user = users.find(u => u.userID === staffMember.userID);
                       return (
                         <tr key={staffMember.staffID} className="hover:bg-gray-50">
-                          <td className="p-3 border-b font-medium">{user?.name}</td>
-                          <td className="p-3 border-b text-gray-600">{user?.email}</td>
+                          <td className="p-3 border-b font-medium">{staffMember.name}</td>
+                          <td className="p-3 border-b text-gray-600">{staffMember.email}</td>
                           <td className="p-3 border-b text-gray-600">{staffMember.shelter?.name}</td>
                           <td className="p-3 border-b">
                             <button

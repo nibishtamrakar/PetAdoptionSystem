@@ -20,65 +20,52 @@ def get_db():
     finally:
         db.close()
 
+
 @router.get("/pets", response_model=List[PetOut])
 def list_pets(
     q_location: Optional[str] = None,   # search by shelter/address/city
     q_animal: Optional[str] = None,     # search by species/breed
     db: Session = Depends(get_db),
 ):
-    query = (
-        db.query(
-            models.Pet,
-            models.Shelter.name.label("shelterName"),
-            models.Shelter.address.label("shelterAddress"),
-        )
-        .join(models.Shelter, models.Pet.shelterID == models.Shelter.shelterID)
-        .filter(models.Pet.status.in_(["AVAILABLE", "HOLD"]))  # only adoptable
-    )
+    """
+    List available pets from vw_available_pets view.
+    Supports filtering by location (shelterName/address) and animal (species/breed).
+    """
+    
+    sql = "SELECT * FROM vw_available_pets WHERE 1=1"
+    params = {}
 
-    # ---- location search: shelter name OR address (which includes city text) ----
+    # ---- location search: shelter name OR address ----
     if q_location:
-        like_loc = f"%{q_location}%"
-        query = query.filter(
-            or_(
-                models.Shelter.name.ilike(like_loc),
-                models.Shelter.address.ilike(like_loc),
-            )
-        )
+        sql += " AND (shelterName LIKE :loc OR shelterAddress LIKE :loc)"
+        params["loc"] = f"%{q_location}%"
 
     # ---- animal search: species OR breed ----
     if q_animal:
-        like_animal = f"%{q_animal}%"
-        query = query.filter(
-            or_(
-                models.Pet.species.ilike(like_animal),
-                models.Pet.breed.ilike(like_animal),
-            )
-        )
+        sql += " AND (species LIKE :ani OR breed LIKE :ani)"
+        params["ani"] = f"%{q_animal}%"
 
-    rows = query.all()
+    rows = db.execute(text(sql), params).mappings().all()
 
     pets_out: List[PetOut] = []
-    for pet_obj, shelterName, shelterAddress in rows:
+    for row in rows:
         pets_out.append(
             PetOut(
-                petID=pet_obj.petID,
-                name=pet_obj.name,
-                species=pet_obj.species,
-                breed=pet_obj.breed,
-                sex=pet_obj.sex,
-                dob=pet_obj.dob,
-                status=pet_obj.status,
-                intakeDate=pet_obj.intakeDate,
-                shelterID=pet_obj.shelterID,
-                shelterName=shelterName,
-                shelterAddress=shelterAddress,  
+                petID=row["petID"],
+                name=row["name"],
+                species=row["species"],
+                breed=row["breed"],
+                sex=row["sex"],
+                dob=row["dob"],
+                status=row["status"],
+                intakeDate=row["intakeDate"],
+                shelterID=row["shelterID"],
+                shelterName=row["shelterName"],
+                shelterAddress=row["shelterAddress"],
             )
         )
 
     return pets_out
-
-
 
 @router.get("/pets/{pet_id}", response_model=PetDetailOut)
 def get_pet(pet_id: int, db: Session = Depends(get_db)):

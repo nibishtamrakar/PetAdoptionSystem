@@ -2,7 +2,7 @@ from datetime import datetime, date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_,text
 
 from app.database import SessionLocal
 from app import models
@@ -13,6 +13,7 @@ from app.schemas import (
     VaccineOut, PetVaccineOut
 )
 from app.routers.users import get_db
+
 
 router = APIRouter(prefix="/api", tags=["staff"])
 
@@ -323,9 +324,10 @@ def get_past_appointments(request: Request, db: Session = Depends(get_db)):
     return appointments
 
 # Adoption requests endpoints
+
 @router.get("/adoption-requests", response_model=List[AdoptionOut])
 def get_adoption_requests(request: Request, db: Session = Depends(get_db)):
-    """Get adoption requests for pets in this shelter"""
+    """Get adoption requests for pets in this shelter using vw_adoption_pipeline view"""
     from app.routers.users import get_current_user
     user = get_current_user(request, db)
     
@@ -336,11 +338,8 @@ def get_adoption_requests(request: Request, db: Session = Depends(get_db)):
             detail="Not authorized to view adoption requests"
         )
     
-    # Get adoptions for pets in this shelter (for staff) or all shelters (for admin)
-    adoptions = db.query(models.Adoption).join(
-        models.Pet,
-        models.Adoption.petID == models.Pet.petID
-    )
+    sql = "SELECT * FROM vw_adoption_pipeline ORDER BY applicationDate DESC"
+    params = {}
     
     # For staff users, filter by their shelter
     if user.role == "STAFF":
@@ -351,9 +350,27 @@ def get_adoption_requests(request: Request, db: Session = Depends(get_db)):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Staff record not found"
             )
-        adoptions = adoptions.filter(models.Pet.shelterID == staff_record.shelterID)
+        sql = "SELECT * FROM vw_adoption_pipeline WHERE shelterID = :shelter_id ORDER BY applicationDate DESC"
+        params["shelter_id"] = staff_record.shelterID
     
-    adoptions = adoptions.order_by(models.Adoption.applicationDate.desc()).all()
+    rows = db.execute(text(sql), params).mappings().all()
+    
+    # Convert rows to AdoptionOut objects
+    adoptions = []
+    for row in rows:
+        adoptions.append(
+            AdoptionOut(
+                adoptionID=row["adoptionID"],
+                petID=row["petID"],
+                petName=row["petName"],
+                adopterID=row["adopterID"],
+                adopterName=row["adopterName"],
+                status=row["status"],
+                applicationDate=row["applicationDate"],
+                approvalDate=row["approvalDate"],
+                finalizationDate=row["finalizationDate"],
+            )
+        )
     
     return adoptions
 

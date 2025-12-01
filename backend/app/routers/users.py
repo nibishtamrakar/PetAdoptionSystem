@@ -9,6 +9,8 @@ import os
 import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from app.database import SessionLocal
 from app import models
@@ -385,20 +387,95 @@ async def update_appointment(
 @router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
 def schedule_appointment(payload: ScheduleAppointmentIn, db: Session = Depends(get_db), current_user: models.UserAccount = Depends(get_current_user)):
     """
-    Create a new appointment for the currently logged-in user (adopter).
-    adopterID comes from the JWT token (current_user.userID).
+    Schedule an appointment using the stores procedure 'sp_schedule_appointment'.
+    Procedure prevents double-booking a pet at the same time.
+    petID, shelterID are passed from frontend. adopterID derived from logged-in user.
     """
 
-    appt = models.Appointment(
-        petID=payload.petID,
-        adopterID=current_user.userID,      # from token
-        shelterID=payload.shelterID,
-        appointmentTime=payload.appointmentTime,
-        appointmentType=payload.appointmentType,
+    try:
+        db.execute(
+            text(
+                """
+                CALL sp_schedule_appointment(
+                    :p_petID,
+                    :p_adopterID,
+                    :p_shelterID,
+                    :p_time,
+                    :p_type
+                )
+                """
+            ),
+            {
+                "p_petID": payload.petID,
+                "p_adopterID": current_user.userID,
+                "p_shelterID": payload.shelterID,
+                "p_time": payload.appointmentTime,
+                "p_type": payload.appointmentType,
+            },
+        )
+        db.commit()
+    except DBAPIError as e:
+        db.rollback()
+        msg = str(getattr(e, "orig", e))
+        raise HTTPException(status_code=400, detail=msg)
+
+    appt = (
+        db.query(models.Appointment)
+        .filter_by(
+            petID=payload.petID,
+            adopterID=current_user.userID,
+            shelterID=payload.shelterID,
+            appointmentTime=payload.appointmentTime,
+            appointmentType=payload.appointmentType,
+        )
+        .order_by(models.Appointment.appointmentID.desc())
+        .first()
     )
 
-    db.add(appt)
-    db.commit()
-    db.refresh(appt)
+    if not appt:
+    # Should not really happen if the procedure worked
+        raise HTTPException(
+            status_code=500,
+            detail="Appointment created but not found when reading back",
+        )
 
     return appt
+
+    # old code
+    # appt = models.Appointment(
+    #     petID=payload.petID,
+    #     adopterID=current_user.userID,      # from token
+    #     shelterID=payload.shelterID,
+    #     appointmentTime=payload.appointmentTime,
+    #     appointmentType=payload.appointmentType,
+    # )
+
+    # db.add(appt)
+    # db.commit()
+    # db.refresh(appt)
+
+    # return appt
+
+@router.post("/adoptions", response_model=AdoptionOut, status_code=status.HTTP_201_CREATED)
+def new_adoption(
+    payload: AdoptionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.UserAccount = Depends(get_current_user),
+):
+    adoption = models.Adoption(
+        petID=payload.petID,
+        adopterID=current_user.userID,
+        status="APPLIED",
+        applicationDate=datetime.now(),
+    )
+
+    db.add(adoption)
+    try:
+        db.commit()  # trigger fires here
+        db.refresh(adoption)
+    except DBAPIError as e:
+        db.rollback()
+        msg = str(getattr(e, "orig", e))
+        raise HTTPException(status_code=400, detail=msg)
+
+    return adoption
